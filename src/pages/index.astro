@@ -96,6 +96,13 @@ import "../styles/global.css";
             />
           </div>
 
+          <div class="flex items-center gap-3 mb-6">
+            <button id="download-all-btn" class="px-4 py-2 rounded-lg bg-brand text-white text-sm font-bold hover:bg-brand-dark disabled:opacity-50 disabled:cursor-not-allowed">
+              전원 JPG 다운로드
+            </button>
+            <p id="download-all-progress" class="text-xs text-gray-500"></p>
+          </div>
+
           <div class="bg-white rounded-xl border border-gray-100 p-6">
             <table class="w-full text-sm">
               <thead>
@@ -241,6 +248,7 @@ import "../styles/global.css";
     <script>
       import { supabase } from '../lib/supabase';
       import { toJpeg } from 'html-to-image';
+      import JSZip from 'jszip';
 
       const GRADES = ['초5', '초6', '중1', '중2', '중3', '고1', '고2', '고3'];
       const SUBJECTS = ['국어', '영어', '수학', '과학'];
@@ -807,6 +815,7 @@ import "../styles/global.css";
       // ── 미리보기 모달 ──────────────────────────────
       const previewModal = document.getElementById('preview-modal') as HTMLElement;
       let currentPreview: { studentName: string; examName: string } | null = null;
+      let isBulkRunning = false;
 
       async function openPreview(studentName: string) {
         const examId = (document.getElementById('report-exam-select') as HTMLSelectElement).value;
@@ -835,18 +844,83 @@ import "../styles/global.css";
       }
 
       document.getElementById('preview-close-btn')?.addEventListener('click', () => {
+        if (isBulkRunning) return;
         previewModal.hidden = true;
         currentPreview = null;
       });
 
       document.getElementById('preview-download-btn')?.addEventListener('click', async () => {
-        if (!currentPreview) return;
+        if (isBulkRunning || !currentPreview) return;
         const node = document.getElementById('report-template')!;
         const dataUrl = await toJpeg(node, { quality: 0.95, pixelRatio: 2, backgroundColor: '#ffffff' });
         const a = document.createElement('a');
         a.href = dataUrl;
         a.download = `${currentPreview.studentName}_${currentPreview.examName}_성적표.jpg`;
         a.click();
+      });
+
+      // ── 전원 JPG 다운로드 (zip) ──────────────────────────────
+      document.getElementById('download-all-btn')?.addEventListener('click', async () => {
+        if (isBulkRunning) return;
+        if (allStudents.length === 0) {
+          alert('다운로드할 학생이 없습니다.');
+          return;
+        }
+
+        const examId = (document.getElementById('report-exam-select') as HTMLSelectElement).value;
+        const grade = (document.getElementById('report-grade-select') as HTMLSelectElement).value;
+        const btn = document.getElementById('download-all-btn') as HTMLButtonElement;
+        const progressEl = document.getElementById('download-all-progress') as HTMLElement;
+
+        const { data: examRow } = await supabase.from('rc_exams').select('name, comment').eq('id', examId).single();
+        if (!examRow) {
+          alert('시험 정보를 불러오지 못했습니다.');
+          return;
+        }
+
+        isBulkRunning = true;
+        btn.disabled = true;
+        previewModal.hidden = false;
+        const zip = new JSZip();
+
+        try {
+          for (let i = 0; i < allStudents.length; i++) {
+            const student = allStudents[i];
+            progressEl.textContent = `${i + 1} / ${allStudents.length}명 처리 중... (${student.name})`;
+
+            const { data: rows, error } = await supabase
+              .from('rc_scores')
+              .select('subject, score, class_avg, class_stddev, class_rank, class_size')
+              .eq('exam_id', examId)
+              .eq('grade', grade)
+              .eq('student_name', student.name)
+              .order('subject');
+            if (error || !rows || rows.length === 0) continue;
+
+            renderReportTemplate(student.name, examRow.name, grade, rows, examRow.comment ?? '');
+
+            const node = document.getElementById('report-template')!;
+            const dataUrl = await toJpeg(node, { quality: 0.95, pixelRatio: 2, backgroundColor: '#ffffff' });
+            const base64 = dataUrl.split(',')[1];
+            zip.file(`${student.name}_${examRow.name}_성적표.jpg`, base64, { base64: true });
+          }
+
+          progressEl.textContent = '압축 중...';
+          const blob = await zip.generateAsync({ type: 'blob' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${grade}_${examRow.name}_전체_성적표.zip`;
+          a.click();
+          URL.revokeObjectURL(url);
+
+          progressEl.textContent = `완료: ${allStudents.length}명 다운로드됨`;
+        } finally {
+          isBulkRunning = false;
+          btn.disabled = false;
+          previewModal.hidden = true;
+          currentPreview = null;
+        }
       });
 
       // ── 초기화 ──────────────────────────────

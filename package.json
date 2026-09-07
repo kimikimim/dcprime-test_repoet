@@ -17,7 +17,8 @@
     "@supabase/supabase-js": "^2.104.0",
     "@tailwindcss/vite": "^4.2.4",
     "astro": "^6.1.8",
-    "html-to-image": "^1.11.11"
+    "html-to-image": "^1.11.11",
+    "jszip": "^3.10.1"
   },
   "devDependencies": {
     "tailwindcss": "^4.2.4",
