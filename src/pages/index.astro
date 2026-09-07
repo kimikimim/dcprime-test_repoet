@@ -10,34 +10,11 @@ import "../styles/global.css";
     <title>대치프라임 성적표 시스템</title>
   </head>
   <body class="bg-gray-50 text-gray-900 font-sans min-h-screen">
-    <!-- 로그인 화면 -->
-    <div id="login-screen" class="min-h-screen flex items-center justify-center px-4">
-      <form id="login-form" class="w-full max-w-sm bg-white rounded-xl shadow-sm border border-gray-100 p-8">
-        <h1 class="text-lg font-bold text-brand-dark mb-1">대치프라임 성적표 시스템</h1>
-        <p class="text-sm text-gray-500 mb-6">관리자 비밀번호를 입력하세요.</p>
-        <input
-          type="password"
-          id="login-password"
-          placeholder="비밀번호"
-          class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-brand"
-          autocomplete="current-password"
-        />
-        <p id="login-error" hidden class="text-sm text-red-600 mb-3">비밀번호가 올바르지 않습니다.</p>
-        <button
-          type="submit"
-          class="w-full bg-brand text-white rounded-lg py-2.5 text-sm font-bold hover:bg-brand-dark transition-colors"
-        >
-          로그인
-        </button>
-      </form>
-    </div>
-
     <!-- 관리자 화면 -->
-    <div id="app-screen" hidden>
+    <div id="app-screen">
       <header class="bg-white border-b border-gray-100 sticky top-0 z-10">
-        <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div class="max-w-5xl mx-auto px-4 py-4">
           <h1 class="text-base font-bold text-brand-dark">대치프라임 성적표 시스템</h1>
-          <button id="logout-btn" class="text-sm text-gray-400 hover:text-gray-600">로그아웃</button>
         </div>
         <div class="max-w-5xl mx-auto px-4 flex gap-1">
           <button data-tab="exams" class="tab-btn px-4 py-2.5 text-sm font-bold border-b-2 border-brand text-brand-dark">
@@ -156,49 +133,9 @@ import "../styles/global.css";
       import { supabase } from '../lib/supabase';
       import { toJpeg } from 'html-to-image';
 
-      const SESSION_KEY = 'rc_admin_session';
-
       function escHtml(str: unknown) {
         return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       }
-
-      // ── 로그인 ──────────────────────────────
-      const loginScreen = document.getElementById('login-screen') as HTMLElement;
-      const appScreen = document.getElementById('app-screen') as HTMLElement;
-      const loginForm = document.getElementById('login-form') as HTMLFormElement;
-      const loginError = document.getElementById('login-error') as HTMLElement;
-      const logoutBtn = document.getElementById('logout-btn') as HTMLButtonElement;
-
-      function isLoggedIn() {
-        return sessionStorage.getItem(SESSION_KEY) === 'ok';
-      }
-      function showApp() {
-        loginScreen.hidden = true;
-        appScreen.hidden = false;
-        init();
-      }
-      function showLogin() {
-        loginScreen.hidden = false;
-        appScreen.hidden = true;
-      }
-
-      loginForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const pw = (document.getElementById('login-password') as HTMLInputElement).value;
-        loginError.hidden = true;
-        const { data, error } = await supabase.rpc('verify_rc_admin_password', { pw });
-        if (error || !data) {
-          loginError.hidden = false;
-          return;
-        }
-        sessionStorage.setItem(SESSION_KEY, 'ok');
-        showApp();
-      });
-
-      logoutBtn.addEventListener('click', () => {
-        sessionStorage.removeItem(SESSION_KEY);
-        showLogin();
-      });
 
       // ── 탭 전환 ──────────────────────────────
       const tabButtons = document.querySelectorAll<HTMLButtonElement>('[data-tab]');
@@ -215,14 +152,18 @@ import "../styles/global.css";
       });
 
       // ── 구글 시트 설정 ──────────────────────────────
+      async function getSheetId(): Promise<string> {
+        const { data } = await supabase.from('rc_config').select('value').eq('key', 'sheet_id').single();
+        return data?.value ?? '';
+      }
+
       async function loadSheetId() {
-        const { data } = await supabase.rpc('get_rc_sheet_id');
-        (document.getElementById('sheet-id-input') as HTMLInputElement).value = data || '';
+        (document.getElementById('sheet-id-input') as HTMLInputElement).value = await getSheetId();
       }
 
       document.getElementById('save-sheet-id-btn')?.addEventListener('click', async () => {
         const id = (document.getElementById('sheet-id-input') as HTMLInputElement).value.trim();
-        await supabase.rpc('set_rc_sheet_id', { new_id: id });
+        await supabase.from('rc_config').upsert({ key: 'sheet_id', value: id }, { onConflict: 'key' });
         alert('저장되었습니다.');
       });
 
@@ -274,7 +215,7 @@ import "../styles/global.css";
         btn.textContent = '동기화 중...';
 
         try {
-          const { data: sheetId } = await supabase.rpc('get_rc_sheet_id');
+          const sheetId = await getSheetId();
           if (!sheetId) {
             resultEl.textContent = '먼저 구글 시트 ID를 설정해주세요.';
             return;
@@ -533,8 +474,7 @@ import "../styles/global.css";
         await loadExamOptions();
       }
 
-      if (isLoggedIn()) showApp();
-      else showLogin();
+      init();
     </script>
   </body>
 </html>
