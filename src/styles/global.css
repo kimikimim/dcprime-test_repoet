@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: #747ba2;
+  --color-brand-dark: #565d82;
+  --color-brand-light: #f0f1f7;
+
+  --font-sans: "Noto Sans KR", "Apple SD Gothic Neo", sans-serif;
+}

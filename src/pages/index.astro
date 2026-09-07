@@ -1,0 +1,540 @@
+---
+import "../styles/global.css";
+---
+
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>대치프라임 성적표 시스템</title>
+  </head>
+  <body class="bg-gray-50 text-gray-900 font-sans min-h-screen">
+    <!-- 로그인 화면 -->
+    <div id="login-screen" class="min-h-screen flex items-center justify-center px-4">
+      <form id="login-form" class="w-full max-w-sm bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+        <h1 class="text-lg font-bold text-brand-dark mb-1">대치프라임 성적표 시스템</h1>
+        <p class="text-sm text-gray-500 mb-6">관리자 비밀번호를 입력하세요.</p>
+        <input
+          type="password"
+          id="login-password"
+          placeholder="비밀번호"
+          class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-brand"
+          autocomplete="current-password"
+        />
+        <p id="login-error" hidden class="text-sm text-red-600 mb-3">비밀번호가 올바르지 않습니다.</p>
+        <button
+          type="submit"
+          class="w-full bg-brand text-white rounded-lg py-2.5 text-sm font-bold hover:bg-brand-dark transition-colors"
+        >
+          로그인
+        </button>
+      </form>
+    </div>
+
+    <!-- 관리자 화면 -->
+    <div id="app-screen" hidden>
+      <header class="bg-white border-b border-gray-100 sticky top-0 z-10">
+        <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+          <h1 class="text-base font-bold text-brand-dark">대치프라임 성적표 시스템</h1>
+          <button id="logout-btn" class="text-sm text-gray-400 hover:text-gray-600">로그아웃</button>
+        </div>
+        <div class="max-w-5xl mx-auto px-4 flex gap-1">
+          <button data-tab="exams" class="tab-btn px-4 py-2.5 text-sm font-bold border-b-2 border-brand text-brand-dark">
+            시험 관리
+          </button>
+          <button data-tab="report" class="tab-btn px-4 py-2.5 text-sm font-bold border-b-2 border-transparent text-gray-400">
+            성적표
+          </button>
+        </div>
+      </header>
+
+      <main class="max-w-5xl mx-auto px-4 py-8">
+        <!-- 탭: 시험 관리 -->
+        <section data-tab-panel="exams">
+          <div class="bg-white rounded-xl border border-gray-100 p-6 mb-6">
+            <h2 class="text-sm font-bold text-gray-900 mb-3">구글 시트 설정</h2>
+            <p class="text-xs text-gray-500 mb-3 leading-relaxed">
+              시트 컬럼 순서: <b>학년 | 시험명 | 시험일자 | 과목 | 이름 | 점수</b><br />
+              공유 설정: "링크가 있는 모든 사용자 - 뷰어"
+            </p>
+            <div class="flex gap-2">
+              <input
+                id="sheet-id-input"
+                type="text"
+                placeholder="구글 스프레드시트 ID"
+                class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              />
+              <button id="save-sheet-id-btn" class="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-bold hover:bg-gray-200">
+                저장
+              </button>
+              <button id="sync-btn" class="px-4 py-2 rounded-lg bg-brand text-white text-sm font-bold hover:bg-brand-dark">
+                구글시트 동기화
+              </button>
+            </div>
+            <p id="sync-result" class="text-xs text-gray-500 mt-3"></p>
+          </div>
+
+          <div class="bg-white rounded-xl border border-gray-100 p-6">
+            <h2 class="text-sm font-bold text-gray-900 mb-4">시험 목록</h2>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="border-b-2 border-gray-900 text-left text-xs text-gray-500">
+                    <th class="py-2 pr-4">학년</th>
+                    <th class="py-2 pr-4">시험명</th>
+                    <th class="py-2 pr-4">시험일자</th>
+                    <th class="py-2 pr-4">과목수</th>
+                    <th class="py-2 pr-4">학생수</th>
+                    <th class="py-2"></th>
+                  </tr>
+                </thead>
+                <tbody id="exams-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 탭: 성적표 -->
+        <section data-tab-panel="report" hidden>
+          <div class="bg-white rounded-xl border border-gray-100 p-6 mb-6 flex flex-col sm:flex-row gap-3">
+            <select id="exam-select" class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"></select>
+            <input
+              id="student-search"
+              type="text"
+              placeholder="학생 이름 검색"
+              class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+            />
+          </div>
+
+          <div class="bg-white rounded-xl border border-gray-100 p-6">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b-2 border-gray-900 text-left text-xs text-gray-500">
+                  <th class="py-2 pr-4">이름</th>
+                  <th class="py-2 pr-4">응시 과목</th>
+                  <th class="py-2"></th>
+                </tr>
+              </thead>
+              <tbody id="students-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- 성적표 캡처용 오프스크린 템플릿 -->
+    <div
+      id="report-template"
+      style="position:absolute; left:-9999px; top:0; width:640px; padding:44px; background:#ffffff; font-family:'Noto Sans KR','Apple SD Gothic Neo',sans-serif; box-sizing:border-box;"
+    >
+      <div style="text-align:center; margin-bottom:20px;">
+        <p id="rt-academy" style="font-size:13px; color:#8a8fad; letter-spacing:3px; font-weight:700; margin:0;">대치프라임 아카데미</p>
+        <h1 id="rt-exam-name" style="font-size:26px; font-weight:800; color:#2e3250; margin:8px 0 0;"></h1>
+        <p id="rt-exam-meta" style="font-size:13px; color:#8a8fad; margin:4px 0 0;"></p>
+      </div>
+      <div style="text-align:center; padding:18px 0 22px; border-bottom:3px solid #2e3250; margin-bottom:18px;">
+        <p style="font-size:12px; color:#8a8fad; margin:0;">학생</p>
+        <p id="rt-student-name" style="font-size:30px; font-weight:800; color:#2e3250; margin:4px 0 0;"></p>
+      </div>
+      <table style="width:100%; border-collapse:collapse;">
+        <thead>
+          <tr style="border-bottom:2px solid #2e3250;">
+            <th style="text-align:left; padding:8px 6px; font-size:13px; color:#2e3250;">과목</th>
+            <th style="text-align:right; padding:8px 6px; font-size:13px; color:#2e3250;">점수</th>
+            <th style="text-align:right; padding:8px 6px; font-size:13px; color:#2e3250;">반평균</th>
+            <th style="text-align:right; padding:8px 6px; font-size:13px; color:#2e3250;">표준편차</th>
+            <th style="text-align:right; padding:8px 6px; font-size:13px; color:#2e3250;">석차</th>
+          </tr>
+        </thead>
+        <tbody id="rt-rows"></tbody>
+      </table>
+      <p style="margin-top:26px; font-size:11px; color:#b8bcd0; text-align:center;">본 성적표는 대치프라임 아카데미 자체 평가 결과입니다.</p>
+    </div>
+
+    <script>
+      import { supabase } from '../lib/supabase';
+      import { toJpeg } from 'html-to-image';
+
+      const SESSION_KEY = 'rc_admin_session';
+
+      function escHtml(str: unknown) {
+        return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
+
+      // ── 로그인 ──────────────────────────────
+      const loginScreen = document.getElementById('login-screen') as HTMLElement;
+      const appScreen = document.getElementById('app-screen') as HTMLElement;
+      const loginForm = document.getElementById('login-form') as HTMLFormElement;
+      const loginError = document.getElementById('login-error') as HTMLElement;
+      const logoutBtn = document.getElementById('logout-btn') as HTMLButtonElement;
+
+      function isLoggedIn() {
+        return sessionStorage.getItem(SESSION_KEY) === 'ok';
+      }
+      function showApp() {
+        loginScreen.hidden = true;
+        appScreen.hidden = false;
+        init();
+      }
+      function showLogin() {
+        loginScreen.hidden = false;
+        appScreen.hidden = true;
+      }
+
+      loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const pw = (document.getElementById('login-password') as HTMLInputElement).value;
+        loginError.hidden = true;
+        const { data, error } = await supabase.rpc('verify_rc_admin_password', { pw });
+        if (error || !data) {
+          loginError.hidden = false;
+          return;
+        }
+        sessionStorage.setItem(SESSION_KEY, 'ok');
+        showApp();
+      });
+
+      logoutBtn.addEventListener('click', () => {
+        sessionStorage.removeItem(SESSION_KEY);
+        showLogin();
+      });
+
+      // ── 탭 전환 ──────────────────────────────
+      const tabButtons = document.querySelectorAll<HTMLButtonElement>('[data-tab]');
+      const tabPanels = document.querySelectorAll<HTMLElement>('[data-tab-panel]');
+      tabButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          tabButtons.forEach((b) => b.classList.remove('border-brand', 'text-brand-dark'));
+          tabButtons.forEach((b) => b.classList.add('border-transparent', 'text-gray-400'));
+          btn.classList.add('border-brand', 'text-brand-dark');
+          btn.classList.remove('border-transparent', 'text-gray-400');
+          const target = btn.dataset.tab;
+          tabPanels.forEach((p) => (p.hidden = p.dataset.tabPanel !== target));
+        });
+      });
+
+      // ── 구글 시트 설정 ──────────────────────────────
+      async function loadSheetId() {
+        const { data } = await supabase.rpc('get_rc_sheet_id');
+        (document.getElementById('sheet-id-input') as HTMLInputElement).value = data || '';
+      }
+
+      document.getElementById('save-sheet-id-btn')?.addEventListener('click', async () => {
+        const id = (document.getElementById('sheet-id-input') as HTMLInputElement).value.trim();
+        await supabase.rpc('set_rc_sheet_id', { new_id: id });
+        alert('저장되었습니다.');
+      });
+
+      // ── 구글 시트 동기화 ──────────────────────────────
+      async function loadXlsxLib() {
+        if ((window as any).XLSX) return;
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+          script.onload = () => resolve();
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      }
+
+      function fmtDate(v: unknown): string {
+        if (v instanceof Date) {
+          const y = v.getFullYear();
+          const m = String(v.getMonth() + 1).padStart(2, '0');
+          const d = String(v.getDate()).padStart(2, '0');
+          return `${y}-${m}-${d}`;
+        }
+        const s = String(v ?? '').trim();
+        return s || new Date().toISOString().slice(0, 10);
+      }
+
+      function computeRanks(items: { name: string; score: number }[]) {
+        const sorted = [...items].sort((a, b) => b.score - a.score);
+        let rank = 0;
+        let prevScore: number | null = null;
+        let seen = 0;
+        sorted.forEach((item) => {
+          seen++;
+          if (item.score !== prevScore) {
+            rank = seen;
+            prevScore = item.score;
+          }
+          (item as any).rank = rank;
+        });
+        return sorted as (typeof items[number] & { rank: number })[];
+      }
+
+      async function syncSheet() {
+        const btn = document.getElementById('sync-btn') as HTMLButtonElement;
+        const resultEl = document.getElementById('sync-result') as HTMLElement;
+        resultEl.textContent = '';
+        btn.disabled = true;
+        const originalLabel = btn.textContent;
+        btn.textContent = '동기화 중...';
+
+        try {
+          const { data: sheetId } = await supabase.rpc('get_rc_sheet_id');
+          if (!sheetId) {
+            resultEl.textContent = '먼저 구글 시트 ID를 설정해주세요.';
+            return;
+          }
+
+          await loadXlsxLib();
+          const res = await fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`);
+          if (!res.ok) throw new Error('시트를 불러오지 못했습니다. 공유 설정을 확인해주세요.');
+          const buf = await res.arrayBuffer();
+          const XLSX = (window as any).XLSX;
+          const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+          const sheet = wb.Sheets[wb.SheetNames[0]];
+          const rows: any[][] = XLSX.utils
+            .sheet_to_json(sheet, { header: 1 })
+            .slice(1)
+            .filter((r: any[]) => r.some((c) => c !== undefined && c !== ''));
+
+          type ExamGroup = { grade: string; name: string; examDate: string; subjects: Map<string, Map<string, number>> };
+          const examGroups = new Map<string, ExamGroup>();
+
+          for (const r of rows) {
+            const grade = String(r[0] ?? '').trim();
+            const examName = String(r[1] ?? '').trim();
+            const examDate = fmtDate(r[2]);
+            const subject = String(r[3] ?? '').trim();
+            const studentName = String(r[4] ?? '').trim();
+            const score = Number(r[5]);
+            if (!grade || !examName || !subject || !studentName || Number.isNaN(score)) continue;
+
+            const examKey = `${grade}||${examName}||${examDate}`;
+            if (!examGroups.has(examKey)) {
+              examGroups.set(examKey, { grade, name: examName, examDate, subjects: new Map() });
+            }
+            const exam = examGroups.get(examKey)!;
+            if (!exam.subjects.has(subject)) exam.subjects.set(subject, new Map());
+            exam.subjects.get(subject)!.set(studentName, score);
+          }
+
+          let examCount = 0;
+          let scoreCount = 0;
+
+          for (const exam of examGroups.values()) {
+            const { data: examRow, error: examErr } = await supabase
+              .from('rc_exams')
+              .upsert({ grade: exam.grade, name: exam.name, exam_date: exam.examDate }, { onConflict: 'grade,name,exam_date' })
+              .select()
+              .single();
+            if (examErr) throw examErr;
+            examCount++;
+
+            const scoreRows: any[] = [];
+            for (const [subject, studentMap] of exam.subjects) {
+              const items = [...studentMap.entries()].map(([name, score]) => ({ name, score }));
+              const ranked = computeRanks(items);
+              const scores = items.map((i) => i.score);
+              const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+              const variance = scores.reduce((a, b) => a + (b - avg) ** 2, 0) / scores.length;
+              const stddev = Math.sqrt(variance);
+              const size = scores.length;
+
+              ranked.forEach((item) => {
+                scoreRows.push({
+                  exam_id: examRow.id,
+                  subject,
+                  student_name: item.name,
+                  score: item.score,
+                  class_avg: Math.round(avg * 10) / 10,
+                  class_stddev: Math.round(stddev * 10) / 10,
+                  class_rank: item.rank,
+                  class_size: size,
+                });
+              });
+            }
+
+            if (scoreRows.length > 0) {
+              const { error: scoreErr } = await supabase
+                .from('rc_scores')
+                .upsert(scoreRows, { onConflict: 'exam_id,subject,student_name' });
+              if (scoreErr) throw scoreErr;
+              scoreCount += scoreRows.length;
+            }
+          }
+
+          resultEl.textContent = `동기화 완료: 시험 ${examCount}개, 성적 ${scoreCount}건 처리됨`;
+          await loadExams();
+          await loadExamOptions();
+        } catch (err: any) {
+          console.error(err);
+          resultEl.textContent = `동기화 실패: ${err.message ?? err}`;
+        } finally {
+          btn.disabled = false;
+          btn.textContent = originalLabel;
+        }
+      }
+
+      document.getElementById('sync-btn')?.addEventListener('click', syncSheet);
+
+      // ── 시험 목록 ──────────────────────────────
+      async function loadExams() {
+        const tbody = document.getElementById('exams-tbody') as HTMLElement;
+        const { data, error } = await supabase
+          .from('rc_exams')
+          .select('id, grade, name, exam_date, rc_scores(subject, student_name)')
+          .order('exam_date', { ascending: false });
+        if (error) {
+          console.error(error);
+          return;
+        }
+        tbody.innerHTML =
+          (data ?? [])
+            .map((exam: any) => {
+              const subjects = new Set(exam.rc_scores.map((s: any) => s.subject));
+              const students = new Set(exam.rc_scores.map((s: any) => s.student_name));
+              return `
+              <tr class="border-b border-gray-100">
+                <td class="py-2 pr-4">${escHtml(exam.grade)}</td>
+                <td class="py-2 pr-4">${escHtml(exam.name)}</td>
+                <td class="py-2 pr-4">${escHtml(exam.exam_date)}</td>
+                <td class="py-2 pr-4">${subjects.size}</td>
+                <td class="py-2 pr-4">${students.size}</td>
+                <td class="py-2">
+                  <button data-delete-exam="${exam.id}" class="text-red-600 text-xs hover:underline">삭제</button>
+                </td>
+              </tr>`;
+            })
+            .join('') || '<tr><td colspan="6" class="py-6 text-gray-400 text-sm text-center">등록된 시험이 없습니다.</td></tr>';
+
+        tbody.querySelectorAll<HTMLButtonElement>('[data-delete-exam]').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            if (!confirm('이 시험과 관련된 모든 성적을 삭제할까요?')) return;
+            await supabase.from('rc_exams').delete().eq('id', btn.dataset.deleteExam!);
+            await loadExams();
+            await loadExamOptions();
+          });
+        });
+      }
+
+      // ── 성적표 탭 ──────────────────────────────
+      let allStudents: { name: string; subjects: string[] }[] = [];
+
+      async function loadExamOptions() {
+        const select = document.getElementById('exam-select') as HTMLSelectElement;
+        const prev = select.value;
+        const { data } = await supabase.from('rc_exams').select('id, grade, name, exam_date').order('exam_date', { ascending: false });
+        select.innerHTML = (data ?? [])
+          .map((e: any) => `<option value="${e.id}">${escHtml(e.grade)} · ${escHtml(e.name)} · ${escHtml(e.exam_date)}</option>`)
+          .join('');
+        if (data?.some((e: any) => e.id === prev)) select.value = prev;
+        await loadStudents();
+      }
+
+      async function loadStudents() {
+        const examId = (document.getElementById('exam-select') as HTMLSelectElement).value;
+        if (!examId) {
+          allStudents = [];
+          applyStudentFilter();
+          return;
+        }
+        const { data, error } = await supabase.from('rc_scores').select('student_name, subject').eq('exam_id', examId);
+        if (error) {
+          console.error(error);
+          return;
+        }
+        const byStudent = new Map<string, string[]>();
+        (data ?? []).forEach((row: any) => {
+          if (!byStudent.has(row.student_name)) byStudent.set(row.student_name, []);
+          byStudent.get(row.student_name)!.push(row.subject);
+        });
+        allStudents = [...byStudent.entries()]
+          .map(([name, subjects]) => ({ name, subjects }))
+          .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+        applyStudentFilter();
+      }
+
+      function applyStudentFilter() {
+        const q = (document.getElementById('student-search') as HTMLInputElement).value.trim();
+        const tbody = document.getElementById('students-tbody') as HTMLElement;
+        const filtered = q ? allStudents.filter((s) => s.name.includes(q)) : allStudents;
+        tbody.innerHTML =
+          filtered
+            .map(
+              (s) => `
+              <tr class="border-b border-gray-100">
+                <td class="py-2 pr-4 font-medium">${escHtml(s.name)}</td>
+                <td class="py-2 pr-4 text-gray-500">${s.subjects.length}과목</td>
+                <td class="py-2">
+                  <button data-download="${escHtml(s.name)}" class="rounded-lg bg-brand text-white text-xs font-bold px-3 py-1.5 hover:bg-brand-dark">
+                    다운로드
+                  </button>
+                </td>
+              </tr>`
+            )
+            .join('') || '<tr><td colspan="3" class="py-6 text-gray-400 text-sm text-center">학생이 없습니다.</td></tr>';
+
+        tbody.querySelectorAll<HTMLButtonElement>('[data-download]').forEach((btn) => {
+          btn.addEventListener('click', () => downloadReport(btn.dataset.download!));
+        });
+      }
+
+      document.getElementById('exam-select')?.addEventListener('change', loadStudents);
+      document.getElementById('student-search')?.addEventListener('input', applyStudentFilter);
+
+      function renderReportTemplate(studentName: string, exam: any, rows: any[]) {
+        (document.getElementById('rt-exam-name') as HTMLElement).textContent = exam.name;
+        (document.getElementById('rt-exam-meta') as HTMLElement).textContent = `${exam.grade} · ${exam.exam_date}`;
+        (document.getElementById('rt-student-name') as HTMLElement).textContent = studentName;
+
+        const rowsHtml = rows
+          .map(
+            (r) => `
+            <tr style="border-bottom:1px solid #f0f1f4;">
+              <td style="padding:12px 6px; font-weight:700; color:#2e3250;">${escHtml(r.subject)}</td>
+              <td style="padding:12px 6px; text-align:right; font-weight:800; font-size:17px; color:#565d82;">${r.score}점</td>
+              <td style="padding:12px 6px; text-align:right; color:#8a8fad;">${r.class_avg}점</td>
+              <td style="padding:12px 6px; text-align:right; color:#8a8fad;">${r.class_stddev}</td>
+              <td style="padding:12px 6px; text-align:right; color:#2e3250;">${r.class_size}명 중 ${r.class_rank}등</td>
+            </tr>`
+          )
+          .join('');
+        (document.getElementById('rt-rows') as HTMLElement).innerHTML = rowsHtml;
+      }
+
+      async function downloadReport(studentName: string) {
+        const examId = (document.getElementById('exam-select') as HTMLSelectElement).value;
+        const { data: rows, error } = await supabase
+          .from('rc_scores')
+          .select('subject, score, class_avg, class_stddev, class_rank, class_size')
+          .eq('exam_id', examId)
+          .eq('student_name', studentName)
+          .order('subject');
+        if (error || !rows || rows.length === 0) {
+          alert('성적 데이터를 불러오지 못했습니다.');
+          return;
+        }
+
+        const { data: examRow } = await supabase.from('rc_exams').select('grade, name, exam_date').eq('id', examId).single();
+        if (!examRow) {
+          alert('시험 정보를 불러오지 못했습니다.');
+          return;
+        }
+
+        renderReportTemplate(studentName, examRow, rows);
+
+        const node = document.getElementById('report-template')!;
+        const dataUrl = await toJpeg(node, { quality: 0.95, pixelRatio: 2, backgroundColor: '#ffffff' });
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `${studentName}_${examRow.name}_성적표.jpg`;
+        a.click();
+      }
+
+      // ── 초기화 ──────────────────────────────
+      async function init() {
+        await loadSheetId();
+        await loadExams();
+        await loadExamOptions();
+      }
+
+      if (isLoggedIn()) showApp();
+      else showLogin();
+    </script>
+  </body>
+</html>
