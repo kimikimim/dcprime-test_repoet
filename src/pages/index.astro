@@ -748,15 +748,16 @@ import "../styles/global.css";
       document.getElementById('report-grade-select')?.addEventListener('change', loadStudents);
       document.getElementById('student-search')?.addEventListener('input', applyStudentFilter);
 
-      // 9등급제 누적 비율 기준으로 석차/응시인원에서 예상등급 추정
+      // 5등급제(2028 수능 개편) 누적 비율 기준으로 석차/응시인원에서 예상등급 추정
+      // 1등급 누적 상위 10% · 2등급 34% · 3등급 66% · 4등급 90% · 5등급 100%
       function estimateGrade(rank: number, size: number): number {
-        if (size <= 0) return 9;
+        if (size <= 0) return 5;
         const percentile = rank / size;
-        const bands = [0.04, 0.11, 0.23, 0.4, 0.6, 0.77, 0.89, 0.96];
+        const bands = [0.1, 0.34, 0.66, 0.9];
         for (let i = 0; i < bands.length; i++) {
           if (percentile <= bands[i]) return i + 1;
         }
-        return 9;
+        return 5;
       }
 
       function renderReportTemplate(studentName: string, name: string, grade: string, rows: any[], comment: string) {
