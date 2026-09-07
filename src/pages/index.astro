@@ -125,7 +125,10 @@ import "../styles/global.css";
 
         <div class="p-6 border-b border-gray-100">
           <h4 class="text-sm font-bold text-gray-900 mb-2">엑셀로 명단 업로드</h4>
-          <p class="text-xs text-gray-500 mb-3">컬럼 순서(첫 행은 헤더): <b>학년 | 과목 | 이름 | 점수</b></p>
+          <p class="text-xs text-gray-500 mb-3 leading-relaxed">
+            첫 행은 헤더: <b>학년 | 이름 | 국어 | 영어 | 수학 | 과학</b><br />
+            과목 컬럼은 필요한 것만 있어도 되고 순서도 상관없습니다. 빈 칸은 그 과목 미응시로 처리됩니다.
+          </p>
           <input
             id="ed-excel-input"
             type="file"
@@ -584,7 +587,8 @@ import "../styles/global.css";
         await loadReportExamOptions();
       });
 
-      // ── 엑셀 업로드 처리 (시험 상세 안에서, 학년 | 과목 | 이름 | 점수) ──────────────────────────────
+      // ── 엑셀 업로드 처리 (시험 상세 안에서, 헤더: 학년 | 이름 | 국어 | 영어 | 수학 | 과학) ──────────────────────────────
+      // 과목 컬럼은 필요한 것만 있어도 되고 순서도 상관없음. 빈 칸은 그 과목 미응시로 처리.
       async function processExcelFile(file: File) {
         if (!currentExam) return;
         const resultEl = document.getElementById('ed-upload-result') as HTMLElement;
@@ -596,25 +600,37 @@ import "../styles/global.css";
           const XLSX = (window as any).XLSX;
           const wb = XLSX.read(buf, { type: 'array', cellDates: true });
           const sheet = wb.Sheets[wb.SheetNames[0]];
-          const rows: any[][] = XLSX.utils
-            .sheet_to_json(sheet, { header: 1 })
-            .slice(1)
-            .filter((r: any[]) => r.some((c) => c !== undefined && c !== ''));
+          const allRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+          const header = (allRows[0] ?? []).map((c: any) => String(c ?? '').trim());
+          const dataRows = allRows.slice(1).filter((r: any[]) => r.some((c) => c !== undefined && c !== ''));
+
+          const gradeIdx = header.indexOf('학년');
+          const nameIdx = header.indexOf('이름');
+          const subjectCols = SUBJECTS.map((s) => ({ subject: s, idx: header.indexOf(s) })).filter((c) => c.idx !== -1);
+
+          if (gradeIdx === -1 || nameIdx === -1 || subjectCols.length === 0) {
+            resultEl.textContent = '헤더를 확인해주세요. 학년 | 이름 | 국어 | 영어 | 수학 | 과학 형식이어야 합니다.';
+            return;
+          }
 
           const byGroup = new Map<string, Map<string, number>>();
-          for (const r of rows) {
-            const grade = String(r[0] ?? '').trim();
-            const subject = String(r[1] ?? '').trim();
-            const studentName = String(r[2] ?? '').trim();
-            const score = Number(r[3]);
-            if (!grade || !subject || !studentName || Number.isNaN(score)) continue;
-            const key = `${grade}||${subject}`;
-            if (!byGroup.has(key)) byGroup.set(key, new Map());
-            byGroup.get(key)!.set(studentName, score);
+          for (const r of dataRows) {
+            const grade = String(r[gradeIdx] ?? '').trim();
+            const studentName = String(r[nameIdx] ?? '').trim();
+            if (!grade || !studentName) continue;
+            for (const { subject, idx } of subjectCols) {
+              const cell = r[idx];
+              if (cell === undefined || cell === '') continue;
+              const score = Number(cell);
+              if (Number.isNaN(score)) continue;
+              const key = `${grade}||${subject}`;
+              if (!byGroup.has(key)) byGroup.set(key, new Map());
+              byGroup.get(key)!.set(studentName, score);
+            }
           }
 
           if (byGroup.size === 0) {
-            resultEl.textContent = '읽을 수 있는 데이터가 없습니다. 컬럼 순서를 확인해주세요.';
+            resultEl.textContent = '읽을 수 있는 데이터가 없습니다. 컬럼 형식을 확인해주세요.';
             return;
           }
 
