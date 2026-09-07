@@ -215,7 +215,6 @@ import "../styles/global.css";
                 <th style="text-align:right; padding:8px 6px; font-size:13px; color:#2e3250;">점수</th>
                 <th style="text-align:right; padding:8px 6px; font-size:13px; color:#2e3250;">반평균</th>
                 <th style="text-align:right; padding:8px 6px; font-size:13px; color:#2e3250;">표준편차</th>
-                <th style="text-align:right; padding:8px 6px; font-size:13px; color:#2e3250;">석차</th>
                 <th style="text-align:right; padding:8px 6px; font-size:13px; color:#2e3250;">예상등급</th>
               </tr>
             </thead>
@@ -773,7 +772,6 @@ import "../styles/global.css";
               <td style="padding:12px 6px; text-align:right; font-weight:800; font-size:17px; color:#565d82;">${r.score}점</td>
               <td style="padding:12px 6px; text-align:right; color:#8a8fad;">${r.class_avg}점</td>
               <td style="padding:12px 6px; text-align:right; color:#8a8fad;">${r.class_stddev}</td>
-              <td style="padding:12px 6px; text-align:right; color:#2e3250;">${r.class_size}명 중 ${r.class_rank}등</td>
               <td style="padding:12px 6px; text-align:right; font-weight:700; color:#565d82;">${estimateGrade(r.class_rank, r.class_size)}등급</td>
             </tr>`
           )
