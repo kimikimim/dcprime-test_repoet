@@ -475,6 +475,7 @@ import "../styles/global.css";
         if (row) await recomputeGroup(currentExam.id, row.grade);
         await loadRoster();
         await loadExams();
+        await loadReportNameOptions();
       }
 
       async function deleteRow(rowId: string) {
@@ -485,6 +486,7 @@ import "../styles/global.css";
         if (row) await recomputeGroup(currentExam.id, row.grade);
         await loadRoster();
         await loadExams();
+        await loadReportNameOptions();
       }
 
       document.getElementById('ed-add-btn')?.addEventListener('click', async () => {
@@ -513,6 +515,7 @@ import "../styles/global.css";
         scoreInput.value = '';
         await loadRoster();
         await loadExams();
+        await loadReportNameOptions();
       });
 
       // ── 엑셀 업로드 처리 (시험 상세 안에서, 학년 | 이름 | 점수) ──────────────────────────────
