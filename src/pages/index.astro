@@ -95,18 +95,24 @@ import "../styles/global.css";
       <div class="bg-white rounded-xl shadow-xl max-w-full max-h-[90vh] overflow-auto">
         <div
           id="report-template"
-          style="width:640px; max-width:100%; padding:44px; background:#ffffff; font-family:'Noto Sans KR','Apple SD Gothic Neo',sans-serif; box-sizing:border-box;"
+          style="position:relative; width:794px; min-height:1123px; max-width:100%; padding:64px 56px; background:#ffffff; font-family:'Noto Sans KR','Apple SD Gothic Neo',sans-serif; box-sizing:border-box; display:flex; flex-direction:column; overflow:hidden;"
         >
-          <div style="text-align:center; margin-bottom:20px;">
+          <img
+            src="/logo.png"
+            style="position:absolute; top:50%; left:50%; width:440px; height:440px; transform:translate(-50%,-50%); opacity:0.055; z-index:0; pointer-events:none;"
+          />
+
+          <div style="position:relative; z-index:1; text-align:center; margin-bottom:28px;">
+            <img src="/logo.png" style="width:64px; height:64px; margin:0 auto 12px; display:block;" />
             <p id="rt-academy" style="font-size:13px; color:#8a8fad; letter-spacing:3px; font-weight:700; margin:0;">대치프라임 아카데미</p>
             <h1 id="rt-exam-name" style="font-size:26px; font-weight:800; color:#2e3250; margin:8px 0 0;"></h1>
             <p id="rt-exam-meta" style="font-size:13px; color:#8a8fad; margin:4px 0 0;"></p>
           </div>
-          <div style="text-align:center; padding:18px 0 22px; border-bottom:3px solid #2e3250; margin-bottom:18px;">
+          <div style="position:relative; z-index:1; text-align:center; padding:18px 0 22px; border-bottom:3px solid #2e3250; margin-bottom:18px;">
             <p style="font-size:12px; color:#8a8fad; margin:0;">학생</p>
             <p id="rt-student-name" style="font-size:30px; font-weight:800; color:#2e3250; margin:4px 0 0;"></p>
           </div>
-          <table style="width:100%; border-collapse:collapse;">
+          <table style="position:relative; z-index:1; width:100%; border-collapse:collapse;">
             <thead>
               <tr style="border-bottom:2px solid #2e3250;">
                 <th style="text-align:left; padding:8px 6px; font-size:13px; color:#2e3250;">과목</th>
@@ -118,7 +124,8 @@ import "../styles/global.css";
             </thead>
             <tbody id="rt-rows"></tbody>
           </table>
-          <p style="margin-top:26px; font-size:11px; color:#b8bcd0; text-align:center;">본 성적표는 대치프라임 아카데미 자체 평가 결과입니다.</p>
+          <div style="flex:1;"></div>
+          <p style="position:relative; z-index:1; font-size:11px; color:#b8bcd0; text-align:center;">본 성적표는 대치프라임 아카데미 자체 평가 결과입니다.</p>
         </div>
         <div class="flex gap-2 p-4 border-t border-gray-100">
           <button id="preview-close-btn" class="flex-1 px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-bold hover:bg-gray-200">
