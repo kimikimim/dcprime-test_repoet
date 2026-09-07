@@ -35,20 +35,16 @@ import "../styles/global.css";
                 <label class="block text-xs font-bold text-gray-500 mb-2">대상학년 (중복 선택 가능)</label>
                 <div id="grade-checkboxes" class="flex flex-wrap gap-2"></div>
               </div>
+              <div>
+                <label class="block text-xs font-bold text-gray-500 mb-2">과목 (중복 선택 가능)</label>
+                <div id="subject-checkboxes" class="flex flex-wrap gap-2"></div>
+              </div>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label class="block text-xs font-bold text-gray-500 mb-1">과목</label>
-                  <select id="new-exam-subject" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
-                    <option value="국어">국어</option>
-                    <option value="영어">영어</option>
-                    <option value="수학">수학</option>
-                    <option value="과학">과학</option>
-                  </select>
-                </div>
                 <div>
                   <label class="block text-xs font-bold text-gray-500 mb-1">시험 이름</label>
                   <input id="new-exam-name" type="text" placeholder="예: 9월 모의고사" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
                 </div>
+                <div></div>
                 <div>
                   <label class="block text-xs font-bold text-gray-500 mb-1">시행 시작일</label>
                   <input id="new-exam-start" type="date" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
@@ -90,7 +86,7 @@ import "../styles/global.css";
         <!-- 탭: 성적표 -->
         <section data-tab-panel="report" hidden>
           <div class="bg-white rounded-xl border border-gray-100 p-6 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <select id="report-name-select" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"></select>
+            <select id="report-exam-select" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"></select>
             <select id="report-grade-select" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"></select>
             <input
               id="student-search"
@@ -129,7 +125,7 @@ import "../styles/global.css";
 
         <div class="p-6 border-b border-gray-100">
           <h4 class="text-sm font-bold text-gray-900 mb-2">엑셀로 명단 업로드</h4>
-          <p class="text-xs text-gray-500 mb-3">컬럼 순서(첫 행은 헤더): <b>학년 | 이름 | 점수</b></p>
+          <p class="text-xs text-gray-500 mb-3">컬럼 순서(첫 행은 헤더): <b>학년 | 과목 | 이름 | 점수</b></p>
           <input
             id="ed-excel-input"
             type="file"
@@ -143,6 +139,7 @@ import "../styles/global.css";
           <h4 class="text-sm font-bold text-gray-900 mb-3">학생 직접 추가</h4>
           <div class="flex flex-wrap gap-2">
             <select id="ed-add-grade" class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm"></select>
+            <select id="ed-add-subject" class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm"></select>
             <input id="ed-add-name" placeholder="이름" class="flex-1 min-w-[100px] border border-gray-200 rounded-lg px-2 py-1.5 text-sm" />
             <input id="ed-add-score" type="number" placeholder="점수" class="w-24 border border-gray-200 rounded-lg px-2 py-1.5 text-sm" />
             <button id="ed-add-btn" class="px-3 py-1.5 rounded-lg bg-brand text-white text-sm font-bold hover:bg-brand-dark">추가</button>
@@ -156,6 +153,7 @@ import "../styles/global.css";
               <thead>
                 <tr class="border-b-2 border-gray-900 text-left text-xs text-gray-500">
                   <th class="py-2 pr-3">학년</th>
+                  <th class="py-2 pr-3">과목</th>
                   <th class="py-2 pr-3">이름</th>
                   <th class="py-2 pr-3">점수</th>
                   <th class="py-2 pr-3">반평균</th>
@@ -171,7 +169,7 @@ import "../styles/global.css";
 
         <div class="p-6 border-t border-gray-100">
           <h4 class="text-sm font-bold text-gray-900 mb-2">이 시험에 대한 총평</h4>
-          <p class="text-xs text-gray-500 mb-3">성적표 하단에 이 과목의 총평으로 표시됩니다.</p>
+          <p class="text-xs text-gray-500 mb-3">성적표 하단에 표시됩니다.</p>
           <textarea
             id="ed-comment"
             rows="4"
@@ -275,9 +273,14 @@ import "../styles/global.css";
         });
       }
 
-      // ── 통계 재계산 (같은 exam_id + grade 그룹) ──────────────────────────────
-      async function recomputeGroup(examId: string, grade: string) {
-        const { data: rows, error } = await supabase.from('rc_scores').select('id, score').eq('exam_id', examId).eq('grade', grade);
+      // ── 통계 재계산 (같은 exam_id + grade + subject 그룹) ──────────────────────────────
+      async function recomputeGroup(examId: string, grade: string, subject: string) {
+        const { data: rows, error } = await supabase
+          .from('rc_scores')
+          .select('id, score')
+          .eq('exam_id', examId)
+          .eq('grade', grade)
+          .eq('subject', subject);
         if (error || !rows || rows.length === 0) return;
 
         const sorted = [...rows].sort((a, b) => b.score - a.score);
@@ -317,22 +320,31 @@ import "../styles/global.css";
         </label>`
       ).join('');
 
+      const subjectCheckboxContainer = document.getElementById('subject-checkboxes') as HTMLElement;
+      subjectCheckboxContainer.innerHTML = SUBJECTS.map(
+        (s) => `
+        <label class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-sm cursor-pointer has-[:checked]:bg-brand-light has-[:checked]:border-brand">
+          <input type="checkbox" value="${s}" class="new-exam-subject accent-[#747ba2]" />
+          ${s}
+        </label>`
+      ).join('');
+
       document.getElementById('create-exam-btn')?.addEventListener('click', async () => {
         const resultEl = document.getElementById('create-exam-result') as HTMLElement;
         const grades = Array.from(document.querySelectorAll<HTMLInputElement>('.new-exam-grade:checked')).map((el) => el.value);
-        const subject = (document.getElementById('new-exam-subject') as HTMLSelectElement).value;
+        const subjects = Array.from(document.querySelectorAll<HTMLInputElement>('.new-exam-subject:checked')).map((el) => el.value);
         const name = (document.getElementById('new-exam-name') as HTMLInputElement).value.trim();
         const start = (document.getElementById('new-exam-start') as HTMLInputElement).value;
         const end = (document.getElementById('new-exam-end') as HTMLInputElement).value;
 
-        if (grades.length === 0 || !name || !start || !end) {
-          resultEl.textContent = '대상학년, 시험 이름, 시행 기간을 모두 입력해주세요.';
+        if (grades.length === 0 || subjects.length === 0 || !name || !start || !end) {
+          resultEl.textContent = '대상학년, 과목, 시험 이름, 시행 기간을 모두 입력해주세요.';
           return;
         }
 
         const { error } = await supabase
           .from('rc_exams')
-          .insert({ grades, subject, name, period_start: start, period_end: end });
+          .insert({ grades, subjects, name, period_start: start, period_end: end });
         if (error) {
           resultEl.textContent = `만들기 실패: ${error.message}`;
           return;
@@ -343,9 +355,10 @@ import "../styles/global.css";
         (document.getElementById('new-exam-start') as HTMLInputElement).value = '';
         (document.getElementById('new-exam-end') as HTMLInputElement).value = '';
         document.querySelectorAll<HTMLInputElement>('.new-exam-grade:checked').forEach((el) => (el.checked = false));
+        document.querySelectorAll<HTMLInputElement>('.new-exam-subject:checked').forEach((el) => (el.checked = false));
 
         await loadExams();
-        await loadReportNameOptions();
+        await loadReportExamOptions();
       });
 
       // ── 시험 목록 ──────────────────────────────
@@ -353,7 +366,7 @@ import "../styles/global.css";
         const tbody = document.getElementById('exams-tbody') as HTMLElement;
         const { data, error } = await supabase
           .from('rc_exams')
-          .select('id, grades, subject, name, period_start, period_end, rc_scores(id)')
+          .select('id, grades, subjects, name, period_start, period_end, rc_scores(id)')
           .order('period_start', { ascending: false });
         if (error) {
           console.error(error);
@@ -365,7 +378,7 @@ import "../styles/global.css";
               return `
               <tr class="border-b border-gray-100 cursor-pointer hover:bg-gray-50" data-open-exam="${exam.id}">
                 <td class="py-2 pr-4">${escHtml((exam.grades ?? []).join(', '))}</td>
-                <td class="py-2 pr-4">${escHtml(exam.subject)}</td>
+                <td class="py-2 pr-4">${escHtml((exam.subjects ?? []).join(', '))}</td>
                 <td class="py-2 pr-4">${escHtml(exam.name)}</td>
                 <td class="py-2 pr-4 whitespace-nowrap">${escHtml(exam.period_start)} ~ ${escHtml(exam.period_end)}</td>
                 <td class="py-2 pr-4">${exam.rc_scores.length}</td>
@@ -385,22 +398,33 @@ import "../styles/global.css";
             if (!confirm('이 시험과 관련된 모든 성적을 삭제할까요?')) return;
             await supabase.from('rc_exams').delete().eq('id', btn.dataset.deleteExam!);
             await loadExams();
-            await loadReportNameOptions();
+            await loadReportExamOptions();
           });
         });
       }
 
       // ── 시험 상세(명단 관리) 모달 ──────────────────────────────
       const examDetailModal = document.getElementById('exam-detail-modal') as HTMLElement;
-      let currentExam: { id: string; grades: string[]; subject: string; name: string; period_start: string; period_end: string; comment: string } | null = null;
+      let currentExam: {
+        id: string;
+        grades: string[];
+        subjects: string[];
+        name: string;
+        period_start: string;
+        period_end: string;
+        comment: string;
+      } | null = null;
 
       const addGradeSelect = document.getElementById('ed-add-grade') as HTMLSelectElement;
       addGradeSelect.innerHTML = GRADES.map((g) => `<option value="${g}">${g}</option>`).join('');
 
+      const addSubjectSelect = document.getElementById('ed-add-subject') as HTMLSelectElement;
+      addSubjectSelect.innerHTML = SUBJECTS.map((s) => `<option value="${s}">${s}</option>`).join('');
+
       async function openExamDetail(examId: string) {
         const { data: exam, error } = await supabase
           .from('rc_exams')
-          .select('id, grades, subject, name, period_start, period_end, comment')
+          .select('id, grades, subjects, name, period_start, period_end, comment')
           .eq('id', examId)
           .single();
         if (error || !exam) {
@@ -408,9 +432,9 @@ import "../styles/global.css";
           return;
         }
         currentExam = exam;
-        (document.getElementById('ed-title') as HTMLElement).textContent = `${exam.subject} · ${exam.name}`;
+        (document.getElementById('ed-title') as HTMLElement).textContent = exam.name;
         (document.getElementById('ed-meta') as HTMLElement).textContent =
-          `대상학년: ${(exam.grades ?? []).join(', ')} · 시행기간: ${exam.period_start} ~ ${exam.period_end}`;
+          `대상학년: ${(exam.grades ?? []).join(', ')} · 과목: ${(exam.subjects ?? []).join(', ')} · 시행기간: ${exam.period_start} ~ ${exam.period_end}`;
         (document.getElementById('ed-upload-result') as HTMLElement).textContent = '';
         (document.getElementById('ed-comment') as HTMLTextAreaElement).value = exam.comment ?? '';
         (document.getElementById('ed-comment-result') as HTMLElement).textContent = '';
@@ -437,9 +461,10 @@ import "../styles/global.css";
         const tbody = document.getElementById('ed-roster-tbody') as HTMLElement;
         const { data, error } = await supabase
           .from('rc_scores')
-          .select('id, grade, student_name, score, class_avg, class_stddev, class_rank, class_size')
+          .select('id, grade, subject, student_name, score, class_avg, class_stddev, class_rank, class_size')
           .eq('exam_id', currentExam.id)
           .order('grade')
+          .order('subject')
           .order('student_name');
         if (error) {
           console.error(error);
@@ -456,6 +481,7 @@ import "../styles/global.css";
               (r) => `
               <tr class="border-b border-gray-100" data-row-id="${r.id}">
                 <td class="py-2 pr-3">${escHtml(r.grade)}</td>
+                <td class="py-2 pr-3">${escHtml(r.subject)}</td>
                 <td class="py-2 pr-3 font-medium">${escHtml(r.student_name)}</td>
                 <td class="py-2 pr-3" data-cell="score">${r.score}</td>
                 <td class="py-2 pr-3 text-gray-500">${r.class_avg}</td>
@@ -467,7 +493,7 @@ import "../styles/global.css";
                 </td>
               </tr>`
             )
-            .join('') || '<tr><td colspan="7" class="py-6 text-gray-400 text-sm text-center">등록된 학생이 없습니다.</td></tr>';
+            .join('') || '<tr><td colspan="8" class="py-6 text-gray-400 text-sm text-center">등록된 학생이 없습니다.</td></tr>';
 
         tbody.querySelectorAll<HTMLButtonElement>('[data-edit-row]').forEach((btn) => {
           btn.addEventListener('click', () => startEditRow(btn.dataset.editRow!));
@@ -500,28 +526,29 @@ import "../styles/global.css";
           alert('점수를 올바르게 입력해주세요.');
           return;
         }
-        const { data: row } = await supabase.from('rc_scores').select('grade').eq('id', rowId).single();
+        const { data: row } = await supabase.from('rc_scores').select('grade, subject').eq('id', rowId).single();
         await supabase.from('rc_scores').update({ score }).eq('id', rowId);
-        if (row) await recomputeGroup(currentExam.id, row.grade);
+        if (row) await recomputeGroup(currentExam.id, row.grade, row.subject);
         await loadRoster();
         await loadExams();
-        await loadReportNameOptions();
+        await loadReportExamOptions();
       }
 
       async function deleteRow(rowId: string) {
         if (!currentExam) return;
         if (!confirm('이 학생 성적을 삭제할까요?')) return;
-        const { data: row } = await supabase.from('rc_scores').select('grade').eq('id', rowId).single();
+        const { data: row } = await supabase.from('rc_scores').select('grade, subject').eq('id', rowId).single();
         await supabase.from('rc_scores').delete().eq('id', rowId);
-        if (row) await recomputeGroup(currentExam.id, row.grade);
+        if (row) await recomputeGroup(currentExam.id, row.grade, row.subject);
         await loadRoster();
         await loadExams();
-        await loadReportNameOptions();
+        await loadReportExamOptions();
       }
 
       document.getElementById('ed-add-btn')?.addEventListener('click', async () => {
         if (!currentExam) return;
         const grade = addGradeSelect.value;
+        const subject = addSubjectSelect.value;
         const nameInput = document.getElementById('ed-add-name') as HTMLInputElement;
         const scoreInput = document.getElementById('ed-add-score') as HTMLInputElement;
         const name = nameInput.value.trim();
@@ -533,22 +560,32 @@ import "../styles/global.css";
         const { error } = await supabase
           .from('rc_scores')
           .upsert(
-            { exam_id: currentExam.id, grade, student_name: name, score, class_avg: 0, class_stddev: 0, class_rank: 0, class_size: 0 },
-            { onConflict: 'exam_id,grade,student_name' }
+            {
+              exam_id: currentExam.id,
+              grade,
+              subject,
+              student_name: name,
+              score,
+              class_avg: 0,
+              class_stddev: 0,
+              class_rank: 0,
+              class_size: 0,
+            },
+            { onConflict: 'exam_id,grade,subject,student_name' }
           );
         if (error) {
           alert(`추가 실패: ${error.message}`);
           return;
         }
-        await recomputeGroup(currentExam.id, grade);
+        await recomputeGroup(currentExam.id, grade, subject);
         nameInput.value = '';
         scoreInput.value = '';
         await loadRoster();
         await loadExams();
-        await loadReportNameOptions();
+        await loadReportExamOptions();
       });
 
-      // ── 엑셀 업로드 처리 (시험 상세 안에서, 학년 | 이름 | 점수) ──────────────────────────────
+      // ── 엑셀 업로드 처리 (시험 상세 안에서, 학년 | 과목 | 이름 | 점수) ──────────────────────────────
       async function processExcelFile(file: File) {
         if (!currentExam) return;
         const resultEl = document.getElementById('ed-upload-result') as HTMLElement;
@@ -565,26 +602,30 @@ import "../styles/global.css";
             .slice(1)
             .filter((r: any[]) => r.some((c) => c !== undefined && c !== ''));
 
-          const byGrade = new Map<string, Map<string, number>>();
+          const byGroup = new Map<string, Map<string, number>>();
           for (const r of rows) {
             const grade = String(r[0] ?? '').trim();
-            const studentName = String(r[1] ?? '').trim();
-            const score = Number(r[2]);
-            if (!grade || !studentName || Number.isNaN(score)) continue;
-            if (!byGrade.has(grade)) byGrade.set(grade, new Map());
-            byGrade.get(grade)!.set(studentName, score);
+            const subject = String(r[1] ?? '').trim();
+            const studentName = String(r[2] ?? '').trim();
+            const score = Number(r[3]);
+            if (!grade || !subject || !studentName || Number.isNaN(score)) continue;
+            const key = `${grade}||${subject}`;
+            if (!byGroup.has(key)) byGroup.set(key, new Map());
+            byGroup.get(key)!.set(studentName, score);
           }
 
-          if (byGrade.size === 0) {
+          if (byGroup.size === 0) {
             resultEl.textContent = '읽을 수 있는 데이터가 없습니다. 컬럼 순서를 확인해주세요.';
             return;
           }
 
           let scoreCount = 0;
-          for (const [grade, studentMap] of byGrade) {
+          for (const [key, studentMap] of byGroup) {
+            const [grade, subject] = key.split('||');
             const scoreRows = [...studentMap.entries()].map(([student_name, score]) => ({
               exam_id: currentExam!.id,
               grade,
+              subject,
               student_name,
               score,
               class_avg: 0,
@@ -592,16 +633,16 @@ import "../styles/global.css";
               class_rank: 0,
               class_size: 0,
             }));
-            const { error } = await supabase.from('rc_scores').upsert(scoreRows, { onConflict: 'exam_id,grade,student_name' });
+            const { error } = await supabase.from('rc_scores').upsert(scoreRows, { onConflict: 'exam_id,grade,subject,student_name' });
             if (error) throw error;
             scoreCount += scoreRows.length;
-            await recomputeGroup(currentExam!.id, grade);
+            await recomputeGroup(currentExam!.id, grade, subject);
           }
 
           resultEl.textContent = `업로드 완료: ${scoreCount}명 처리됨`;
           await loadRoster();
           await loadExams();
-          await loadReportNameOptions();
+          await loadReportExamOptions();
         } catch (err: any) {
           console.error(err);
           resultEl.textContent = `업로드 실패: ${err.message ?? err}`;
@@ -619,28 +660,35 @@ import "../styles/global.css";
       // ── 성적표 탭 ──────────────────────────────
       let allStudents: { name: string; subjects: string[] }[] = [];
 
-      async function loadReportNameOptions() {
-        const select = document.getElementById('report-name-select') as HTMLSelectElement;
+      async function loadReportExamOptions() {
+        const select = document.getElementById('report-exam-select') as HTMLSelectElement;
         const prev = select.value;
-        const { data } = await supabase.from('rc_exams').select('name, period_start').order('period_start', { ascending: false });
-        const names = [...new Set((data ?? []).map((e: any) => e.name))];
-        select.innerHTML = names.map((n) => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('');
-        if (names.includes(prev)) select.value = prev;
+        const { data } = await supabase
+          .from('rc_exams')
+          .select('id, grades, subjects, name, period_start, period_end')
+          .order('period_start', { ascending: false });
+        select.innerHTML = (data ?? [])
+          .map(
+            (e: any) =>
+              `<option value="${e.id}">${escHtml((e.grades ?? []).join('/'))} · ${escHtml((e.subjects ?? []).join('/'))} · ${escHtml(e.name)} · ${escHtml(e.period_start)}~${escHtml(e.period_end)}</option>`
+          )
+          .join('');
+        if (data?.some((e: any) => e.id === prev)) select.value = prev;
         await loadReportGradeOptions();
       }
 
       async function loadReportGradeOptions() {
-        const nameSelect = document.getElementById('report-name-select') as HTMLSelectElement;
+        const examSelect = document.getElementById('report-exam-select') as HTMLSelectElement;
         const gradeSelect = document.getElementById('report-grade-select') as HTMLSelectElement;
         const prev = gradeSelect.value;
-        const name = nameSelect.value;
-        if (!name) {
+        const examId = examSelect.value;
+        if (!examId) {
           gradeSelect.innerHTML = '';
           allStudents = [];
           applyStudentFilter();
           return;
         }
-        const { data } = await supabase.from('rc_scores').select('grade, rc_exams!inner(name)').eq('rc_exams.name', name);
+        const { data } = await supabase.from('rc_scores').select('grade').eq('exam_id', examId);
         const grades = [...new Set((data ?? []).map((r: any) => r.grade))].sort((a, b) => GRADES.indexOf(a) - GRADES.indexOf(b));
         gradeSelect.innerHTML = grades.map((g) => `<option value="${escHtml(g)}">${escHtml(g)}</option>`).join('');
         if (grades.includes(prev)) gradeSelect.value = prev;
@@ -648,18 +696,14 @@ import "../styles/global.css";
       }
 
       async function loadStudents() {
-        const name = (document.getElementById('report-name-select') as HTMLSelectElement).value;
+        const examId = (document.getElementById('report-exam-select') as HTMLSelectElement).value;
         const grade = (document.getElementById('report-grade-select') as HTMLSelectElement).value;
-        if (!name || !grade) {
+        if (!examId || !grade) {
           allStudents = [];
           applyStudentFilter();
           return;
         }
-        const { data, error } = await supabase
-          .from('rc_scores')
-          .select('student_name, rc_exams!inner(name, subject)')
-          .eq('rc_exams.name', name)
-          .eq('grade', grade);
+        const { data, error } = await supabase.from('rc_scores').select('student_name, subject').eq('exam_id', examId).eq('grade', grade);
         if (error) {
           console.error(error);
           return;
@@ -667,7 +711,7 @@ import "../styles/global.css";
         const byStudent = new Map<string, string[]>();
         (data ?? []).forEach((row: any) => {
           if (!byStudent.has(row.student_name)) byStudent.set(row.student_name, []);
-          byStudent.get(row.student_name)!.push(row.rc_exams.subject);
+          byStudent.get(row.student_name)!.push(row.subject);
         });
         allStudents = [...byStudent.entries()]
           .map(([name, subjects]) => ({ name, subjects }))
@@ -700,7 +744,7 @@ import "../styles/global.css";
         });
       }
 
-      document.getElementById('report-name-select')?.addEventListener('change', loadReportGradeOptions);
+      document.getElementById('report-exam-select')?.addEventListener('change', loadReportGradeOptions);
       document.getElementById('report-grade-select')?.addEventListener('change', loadStudents);
       document.getElementById('student-search')?.addEventListener('input', applyStudentFilter);
 
@@ -715,7 +759,7 @@ import "../styles/global.css";
         return 9;
       }
 
-      function renderReportTemplate(studentName: string, name: string, grade: string, rows: any[]) {
+      function renderReportTemplate(studentName: string, name: string, grade: string, rows: any[], comment: string) {
         (document.getElementById('rt-exam-name') as HTMLElement).textContent = name;
         (document.getElementById('rt-exam-meta') as HTMLElement).textContent = grade;
         (document.getElementById('rt-student-name') as HTMLElement).textContent = studentName;
@@ -735,21 +779,14 @@ import "../styles/global.css";
           .join('');
         (document.getElementById('rt-rows') as HTMLElement).innerHTML = rowsHtml;
 
-        const comments = rows.filter((r) => r.comment && r.comment.trim());
         const commentsEl = document.getElementById('rt-comments') as HTMLElement;
-        commentsEl.innerHTML = comments.length
-          ? `
-            <p style="font-size:12px; font-weight:700; color:#2e3250; margin:0 0 8px;">총평</p>
-            ${comments
-              .map(
-                (r) => `
-                <p style="font-size:12px; color:#565d82; line-height:1.6; margin:0 0 8px;">
-                  <span style="font-weight:700; color:#2e3250;">[${escHtml(r.subject)}]</span> ${escHtml(r.comment)}
-                </p>`
-              )
-              .join('')}
-          `
-          : '';
+        commentsEl.innerHTML =
+          comment && comment.trim()
+            ? `
+              <p style="font-size:12px; font-weight:700; color:#2e3250; margin:0 0 8px;">총평</p>
+              <p style="font-size:12px; color:#565d82; line-height:1.6; margin:0; white-space:pre-wrap;">${escHtml(comment)}</p>
+            `
+            : '';
       }
 
       // ── 미리보기 모달 ──────────────────────────────
@@ -757,33 +794,28 @@ import "../styles/global.css";
       let currentPreview: { studentName: string; examName: string } | null = null;
 
       async function openPreview(studentName: string) {
-        const name = (document.getElementById('report-name-select') as HTMLSelectElement).value;
+        const examId = (document.getElementById('report-exam-select') as HTMLSelectElement).value;
         const grade = (document.getElementById('report-grade-select') as HTMLSelectElement).value;
         const { data: rows, error } = await supabase
           .from('rc_scores')
-          .select('score, class_avg, class_stddev, class_rank, class_size, rc_exams!inner(name, subject, comment)')
-          .eq('rc_exams.name', name)
+          .select('subject, score, class_avg, class_stddev, class_rank, class_size')
+          .eq('exam_id', examId)
           .eq('grade', grade)
-          .eq('student_name', studentName);
+          .eq('student_name', studentName)
+          .order('subject');
         if (error || !rows || rows.length === 0) {
           alert('성적 데이터를 불러오지 못했습니다.');
           return;
         }
 
-        const normalized = rows
-          .map((r: any) => ({
-            subject: r.rc_exams.subject,
-            score: r.score,
-            class_avg: r.class_avg,
-            class_stddev: r.class_stddev,
-            class_rank: r.class_rank,
-            class_size: r.class_size,
-            comment: r.rc_exams.comment,
-          }))
-          .sort((a: any, b: any) => a.subject.localeCompare(b.subject, 'ko'));
+        const { data: examRow } = await supabase.from('rc_exams').select('name, comment').eq('id', examId).single();
+        if (!examRow) {
+          alert('시험 정보를 불러오지 못했습니다.');
+          return;
+        }
 
-        renderReportTemplate(studentName, name, grade, normalized);
-        currentPreview = { studentName, examName: name };
+        renderReportTemplate(studentName, examRow.name, grade, rows, examRow.comment ?? '');
+        currentPreview = { studentName, examName: examRow.name };
         previewModal.hidden = false;
       }
 
@@ -805,7 +837,7 @@ import "../styles/global.css";
       // ── 초기화 ──────────────────────────────
       async function init() {
         await loadExams();
-        await loadReportNameOptions();
+        await loadReportExamOptions();
       }
 
       init();
