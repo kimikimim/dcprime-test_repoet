@@ -168,6 +168,23 @@ import "../styles/global.css";
             </table>
           </div>
         </div>
+
+        <div class="p-6 border-t border-gray-100">
+          <h4 class="text-sm font-bold text-gray-900 mb-2">이 시험에 대한 총평</h4>
+          <p class="text-xs text-gray-500 mb-3">성적표 하단에 이 과목의 총평으로 표시됩니다.</p>
+          <textarea
+            id="ed-comment"
+            rows="4"
+            placeholder="예: 이번 시험은 전반적으로 어려웠고, 특히 서술형 문항에서 변별력이 컸습니다."
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+          ></textarea>
+          <div class="flex items-center gap-3 mt-2">
+            <button id="ed-comment-save-btn" class="px-4 py-2 rounded-lg bg-brand text-white text-sm font-bold hover:bg-brand-dark">
+              저장
+            </button>
+            <p id="ed-comment-result" class="text-xs text-gray-500"></p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -201,10 +218,12 @@ import "../styles/global.css";
                 <th style="text-align:right; padding:8px 6px; font-size:13px; color:#2e3250;">반평균</th>
                 <th style="text-align:right; padding:8px 6px; font-size:13px; color:#2e3250;">표준편차</th>
                 <th style="text-align:right; padding:8px 6px; font-size:13px; color:#2e3250;">석차</th>
+                <th style="text-align:right; padding:8px 6px; font-size:13px; color:#2e3250;">예상등급</th>
               </tr>
             </thead>
             <tbody id="rt-rows"></tbody>
           </table>
+          <div id="rt-comments" style="position:relative; z-index:1; margin-top:22px;"></div>
           <div style="flex:1;"></div>
           <p style="position:relative; z-index:1; font-size:11px; color:#b8bcd0; text-align:center;">본 성적표는 대치프라임 학원 자체 평가 결과입니다.</p>
         </div>
@@ -373,7 +392,7 @@ import "../styles/global.css";
 
       // ── 시험 상세(명단 관리) 모달 ──────────────────────────────
       const examDetailModal = document.getElementById('exam-detail-modal') as HTMLElement;
-      let currentExam: { id: string; grades: string[]; subject: string; name: string; period_start: string; period_end: string } | null = null;
+      let currentExam: { id: string; grades: string[]; subject: string; name: string; period_start: string; period_end: string; comment: string } | null = null;
 
       const addGradeSelect = document.getElementById('ed-add-grade') as HTMLSelectElement;
       addGradeSelect.innerHTML = GRADES.map((g) => `<option value="${g}">${g}</option>`).join('');
@@ -381,7 +400,7 @@ import "../styles/global.css";
       async function openExamDetail(examId: string) {
         const { data: exam, error } = await supabase
           .from('rc_exams')
-          .select('id, grades, subject, name, period_start, period_end')
+          .select('id, grades, subject, name, period_start, period_end, comment')
           .eq('id', examId)
           .single();
         if (error || !exam) {
@@ -393,6 +412,8 @@ import "../styles/global.css";
         (document.getElementById('ed-meta') as HTMLElement).textContent =
           `대상학년: ${(exam.grades ?? []).join(', ')} · 시행기간: ${exam.period_start} ~ ${exam.period_end}`;
         (document.getElementById('ed-upload-result') as HTMLElement).textContent = '';
+        (document.getElementById('ed-comment') as HTMLTextAreaElement).value = exam.comment ?? '';
+        (document.getElementById('ed-comment-result') as HTMLElement).textContent = '';
         examDetailModal.hidden = false;
         await loadRoster();
       }
@@ -400,6 +421,15 @@ import "../styles/global.css";
       document.getElementById('ed-close-btn')?.addEventListener('click', () => {
         examDetailModal.hidden = true;
         currentExam = null;
+      });
+
+      document.getElementById('ed-comment-save-btn')?.addEventListener('click', async () => {
+        if (!currentExam) return;
+        const resultEl = document.getElementById('ed-comment-result') as HTMLElement;
+        const comment = (document.getElementById('ed-comment') as HTMLTextAreaElement).value;
+        const { error } = await supabase.from('rc_exams').update({ comment }).eq('id', currentExam.id);
+        resultEl.textContent = error ? `저장 실패: ${error.message}` : '저장되었습니다.';
+        if (!error) currentExam.comment = comment;
       });
 
       async function loadRoster() {
@@ -674,6 +704,17 @@ import "../styles/global.css";
       document.getElementById('report-grade-select')?.addEventListener('change', loadStudents);
       document.getElementById('student-search')?.addEventListener('input', applyStudentFilter);
 
+      // 9등급제 누적 비율 기준으로 석차/응시인원에서 예상등급 추정
+      function estimateGrade(rank: number, size: number): number {
+        if (size <= 0) return 9;
+        const percentile = rank / size;
+        const bands = [0.04, 0.11, 0.23, 0.4, 0.6, 0.77, 0.89, 0.96];
+        for (let i = 0; i < bands.length; i++) {
+          if (percentile <= bands[i]) return i + 1;
+        }
+        return 9;
+      }
+
       function renderReportTemplate(studentName: string, name: string, grade: string, rows: any[]) {
         (document.getElementById('rt-exam-name') as HTMLElement).textContent = name;
         (document.getElementById('rt-exam-meta') as HTMLElement).textContent = grade;
@@ -688,10 +729,27 @@ import "../styles/global.css";
               <td style="padding:12px 6px; text-align:right; color:#8a8fad;">${r.class_avg}점</td>
               <td style="padding:12px 6px; text-align:right; color:#8a8fad;">${r.class_stddev}</td>
               <td style="padding:12px 6px; text-align:right; color:#2e3250;">${r.class_size}명 중 ${r.class_rank}등</td>
+              <td style="padding:12px 6px; text-align:right; font-weight:700; color:#565d82;">${estimateGrade(r.class_rank, r.class_size)}등급</td>
             </tr>`
           )
           .join('');
         (document.getElementById('rt-rows') as HTMLElement).innerHTML = rowsHtml;
+
+        const comments = rows.filter((r) => r.comment && r.comment.trim());
+        const commentsEl = document.getElementById('rt-comments') as HTMLElement;
+        commentsEl.innerHTML = comments.length
+          ? `
+            <p style="font-size:12px; font-weight:700; color:#2e3250; margin:0 0 8px;">총평</p>
+            ${comments
+              .map(
+                (r) => `
+                <p style="font-size:12px; color:#565d82; line-height:1.6; margin:0 0 8px;">
+                  <span style="font-weight:700; color:#2e3250;">[${escHtml(r.subject)}]</span> ${escHtml(r.comment)}
+                </p>`
+              )
+              .join('')}
+          `
+          : '';
       }
 
       // ── 미리보기 모달 ──────────────────────────────
@@ -703,7 +761,7 @@ import "../styles/global.css";
         const grade = (document.getElementById('report-grade-select') as HTMLSelectElement).value;
         const { data: rows, error } = await supabase
           .from('rc_scores')
-          .select('score, class_avg, class_stddev, class_rank, class_size, rc_exams!inner(name, subject)')
+          .select('score, class_avg, class_stddev, class_rank, class_size, rc_exams!inner(name, subject, comment)')
           .eq('rc_exams.name', name)
           .eq('grade', grade)
           .eq('student_name', studentName);
@@ -720,6 +778,7 @@ import "../styles/global.css";
             class_stddev: r.class_stddev,
             class_rank: r.class_rank,
             class_size: r.class_size,
+            comment: r.rc_exams.comment,
           }))
           .sort((a: any, b: any) => a.subject.localeCompare(b.subject, 'ko'));
 
