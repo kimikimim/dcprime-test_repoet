@@ -10,7 +10,6 @@ import "../styles/global.css";
     <title>대치프라임 성적표 시스템</title>
   </head>
   <body class="bg-gray-50 text-gray-900 font-sans min-h-screen">
-    <!-- 관리자 화면 -->
     <div id="app-screen">
       <header class="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div class="max-w-5xl mx-auto px-4 py-4">
@@ -30,26 +29,17 @@ import "../styles/global.css";
         <!-- 탭: 시험 관리 -->
         <section data-tab-panel="exams">
           <div class="bg-white rounded-xl border border-gray-100 p-6 mb-6">
-            <h2 class="text-sm font-bold text-gray-900 mb-3">구글 시트 설정</h2>
+            <h2 class="text-sm font-bold text-gray-900 mb-3">엑셀 업로드</h2>
             <p class="text-xs text-gray-500 mb-3 leading-relaxed">
-              시트 컬럼 순서: <b>학년 | 시험명 | 시험일자 | 과목 | 이름 | 점수</b><br />
-              공유 설정: "링크가 있는 모든 사용자 - 뷰어"
+              컬럼 순서(첫 행은 헤더): <b>학년 | 시험명 | 시험일자 | 과목 | 이름 | 점수</b>
             </p>
-            <div class="flex gap-2">
-              <input
-                id="sheet-id-input"
-                type="text"
-                placeholder="구글 스프레드시트 ID"
-                class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-              />
-              <button id="save-sheet-id-btn" class="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-bold hover:bg-gray-200">
-                저장
-              </button>
-              <button id="sync-btn" class="px-4 py-2 rounded-lg bg-brand text-white text-sm font-bold hover:bg-brand-dark">
-                구글시트 동기화
-              </button>
-            </div>
-            <p id="sync-result" class="text-xs text-gray-500 mt-3"></p>
+            <input
+              id="excel-file-input"
+              type="file"
+              accept=".xlsx,.xls"
+              class="block w-full text-sm text-gray-700 file:mr-3 file:px-4 file:py-2 file:rounded-lg file:border-0 file:bg-brand file:text-white file:text-sm file:font-bold hover:file:bg-brand-dark"
+            />
+            <p id="upload-result" class="text-xs text-gray-500 mt-3"></p>
           </div>
 
           <div class="bg-white rounded-xl border border-gray-100 p-6">
@@ -100,33 +90,45 @@ import "../styles/global.css";
       </main>
     </div>
 
-    <!-- 성적표 캡처용 오프스크린 템플릿 -->
-    <div
-      id="report-template"
-      style="position:absolute; left:-9999px; top:0; width:640px; padding:44px; background:#ffffff; font-family:'Noto Sans KR','Apple SD Gothic Neo',sans-serif; box-sizing:border-box;"
-    >
-      <div style="text-align:center; margin-bottom:20px;">
-        <p id="rt-academy" style="font-size:13px; color:#8a8fad; letter-spacing:3px; font-weight:700; margin:0;">대치프라임 아카데미</p>
-        <h1 id="rt-exam-name" style="font-size:26px; font-weight:800; color:#2e3250; margin:8px 0 0;"></h1>
-        <p id="rt-exam-meta" style="font-size:13px; color:#8a8fad; margin:4px 0 0;"></p>
+    <!-- 성적표 미리보기 모달 -->
+    <div id="preview-modal" hidden class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-xl shadow-xl max-w-full max-h-[90vh] overflow-auto">
+        <div
+          id="report-template"
+          style="width:640px; max-width:100%; padding:44px; background:#ffffff; font-family:'Noto Sans KR','Apple SD Gothic Neo',sans-serif; box-sizing:border-box;"
+        >
+          <div style="text-align:center; margin-bottom:20px;">
+            <p id="rt-academy" style="font-size:13px; color:#8a8fad; letter-spacing:3px; font-weight:700; margin:0;">대치프라임 아카데미</p>
+            <h1 id="rt-exam-name" style="font-size:26px; font-weight:800; color:#2e3250; margin:8px 0 0;"></h1>
+            <p id="rt-exam-meta" style="font-size:13px; color:#8a8fad; margin:4px 0 0;"></p>
+          </div>
+          <div style="text-align:center; padding:18px 0 22px; border-bottom:3px solid #2e3250; margin-bottom:18px;">
+            <p style="font-size:12px; color:#8a8fad; margin:0;">학생</p>
+            <p id="rt-student-name" style="font-size:30px; font-weight:800; color:#2e3250; margin:4px 0 0;"></p>
+          </div>
+          <table style="width:100%; border-collapse:collapse;">
+            <thead>
+              <tr style="border-bottom:2px solid #2e3250;">
+                <th style="text-align:left; padding:8px 6px; font-size:13px; color:#2e3250;">과목</th>
+                <th style="text-align:right; padding:8px 6px; font-size:13px; color:#2e3250;">점수</th>
+                <th style="text-align:right; padding:8px 6px; font-size:13px; color:#2e3250;">반평균</th>
+                <th style="text-align:right; padding:8px 6px; font-size:13px; color:#2e3250;">표준편차</th>
+                <th style="text-align:right; padding:8px 6px; font-size:13px; color:#2e3250;">석차</th>
+              </tr>
+            </thead>
+            <tbody id="rt-rows"></tbody>
+          </table>
+          <p style="margin-top:26px; font-size:11px; color:#b8bcd0; text-align:center;">본 성적표는 대치프라임 아카데미 자체 평가 결과입니다.</p>
+        </div>
+        <div class="flex gap-2 p-4 border-t border-gray-100">
+          <button id="preview-close-btn" class="flex-1 px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-bold hover:bg-gray-200">
+            닫기
+          </button>
+          <button id="preview-download-btn" class="flex-1 px-4 py-2 rounded-lg bg-brand text-white text-sm font-bold hover:bg-brand-dark">
+            JPG 다운로드
+          </button>
+        </div>
       </div>
-      <div style="text-align:center; padding:18px 0 22px; border-bottom:3px solid #2e3250; margin-bottom:18px;">
-        <p style="font-size:12px; color:#8a8fad; margin:0;">학생</p>
-        <p id="rt-student-name" style="font-size:30px; font-weight:800; color:#2e3250; margin:4px 0 0;"></p>
-      </div>
-      <table style="width:100%; border-collapse:collapse;">
-        <thead>
-          <tr style="border-bottom:2px solid #2e3250;">
-            <th style="text-align:left; padding:8px 6px; font-size:13px; color:#2e3250;">과목</th>
-            <th style="text-align:right; padding:8px 6px; font-size:13px; color:#2e3250;">점수</th>
-            <th style="text-align:right; padding:8px 6px; font-size:13px; color:#2e3250;">반평균</th>
-            <th style="text-align:right; padding:8px 6px; font-size:13px; color:#2e3250;">표준편차</th>
-            <th style="text-align:right; padding:8px 6px; font-size:13px; color:#2e3250;">석차</th>
-          </tr>
-        </thead>
-        <tbody id="rt-rows"></tbody>
-      </table>
-      <p style="margin-top:26px; font-size:11px; color:#b8bcd0; text-align:center;">본 성적표는 대치프라임 아카데미 자체 평가 결과입니다.</p>
     </div>
 
     <script>
@@ -151,23 +153,7 @@ import "../styles/global.css";
         });
       });
 
-      // ── 구글 시트 설정 ──────────────────────────────
-      async function getSheetId(): Promise<string> {
-        const { data } = await supabase.from('rc_config').select('value').eq('key', 'sheet_id').single();
-        return data?.value ?? '';
-      }
-
-      async function loadSheetId() {
-        (document.getElementById('sheet-id-input') as HTMLInputElement).value = await getSheetId();
-      }
-
-      document.getElementById('save-sheet-id-btn')?.addEventListener('click', async () => {
-        const id = (document.getElementById('sheet-id-input') as HTMLInputElement).value.trim();
-        await supabase.from('rc_config').upsert({ key: 'sheet_id', value: id }, { onConflict: 'key' });
-        alert('저장되었습니다.');
-      });
-
-      // ── 구글 시트 동기화 ──────────────────────────────
+      // ── 엑셀 파싱 공통 ──────────────────────────────
       async function loadXlsxLib() {
         if ((window as any).XLSX) return;
         await new Promise<void>((resolve, reject) => {
@@ -206,25 +192,14 @@ import "../styles/global.css";
         return sorted as (typeof items[number] & { rank: number })[];
       }
 
-      async function syncSheet() {
-        const btn = document.getElementById('sync-btn') as HTMLButtonElement;
-        const resultEl = document.getElementById('sync-result') as HTMLElement;
-        resultEl.textContent = '';
-        btn.disabled = true;
-        const originalLabel = btn.textContent;
-        btn.textContent = '동기화 중...';
+      // ── 엑셀 업로드 처리 ──────────────────────────────
+      async function processExcelFile(file: File) {
+        const resultEl = document.getElementById('upload-result') as HTMLElement;
+        resultEl.textContent = '처리 중...';
 
         try {
-          const sheetId = await getSheetId();
-          if (!sheetId) {
-            resultEl.textContent = '먼저 구글 시트 ID를 설정해주세요.';
-            return;
-          }
-
           await loadXlsxLib();
-          const res = await fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`);
-          if (!res.ok) throw new Error('시트를 불러오지 못했습니다. 공유 설정을 확인해주세요.');
-          const buf = await res.arrayBuffer();
+          const buf = await file.arrayBuffer();
           const XLSX = (window as any).XLSX;
           const wb = XLSX.read(buf, { type: 'array', cellDates: true });
           const sheet = wb.Sheets[wb.SheetNames[0]];
@@ -252,6 +227,11 @@ import "../styles/global.css";
             const exam = examGroups.get(examKey)!;
             if (!exam.subjects.has(subject)) exam.subjects.set(subject, new Map());
             exam.subjects.get(subject)!.set(studentName, score);
+          }
+
+          if (examGroups.size === 0) {
+            resultEl.textContent = '읽을 수 있는 데이터가 없습니다. 컬럼 순서를 확인해주세요.';
+            return;
           }
 
           let examCount = 0;
@@ -299,19 +279,22 @@ import "../styles/global.css";
             }
           }
 
-          resultEl.textContent = `동기화 완료: 시험 ${examCount}개, 성적 ${scoreCount}건 처리됨`;
+          resultEl.textContent = `업로드 완료: 시험 ${examCount}개, 성적 ${scoreCount}건 처리됨`;
           await loadExams();
           await loadExamOptions();
         } catch (err: any) {
           console.error(err);
-          resultEl.textContent = `동기화 실패: ${err.message ?? err}`;
-        } finally {
-          btn.disabled = false;
-          btn.textContent = originalLabel;
+          resultEl.textContent = `업로드 실패: ${err.message ?? err}`;
         }
       }
 
-      document.getElementById('sync-btn')?.addEventListener('click', syncSheet);
+      document.getElementById('excel-file-input')?.addEventListener('change', async (e) => {
+        const input = e.target as HTMLInputElement;
+        const file = input.files?.[0];
+        if (!file) return;
+        await processExcelFile(file);
+        input.value = '';
+      });
 
       // ── 시험 목록 ──────────────────────────────
       async function loadExams() {
@@ -402,16 +385,16 @@ import "../styles/global.css";
                 <td class="py-2 pr-4 font-medium">${escHtml(s.name)}</td>
                 <td class="py-2 pr-4 text-gray-500">${s.subjects.length}과목</td>
                 <td class="py-2">
-                  <button data-download="${escHtml(s.name)}" class="rounded-lg bg-brand text-white text-xs font-bold px-3 py-1.5 hover:bg-brand-dark">
-                    다운로드
+                  <button data-preview="${escHtml(s.name)}" class="rounded-lg bg-brand text-white text-xs font-bold px-3 py-1.5 hover:bg-brand-dark">
+                    미리보기
                   </button>
                 </td>
               </tr>`
             )
             .join('') || '<tr><td colspan="3" class="py-6 text-gray-400 text-sm text-center">학생이 없습니다.</td></tr>';
 
-        tbody.querySelectorAll<HTMLButtonElement>('[data-download]').forEach((btn) => {
-          btn.addEventListener('click', () => downloadReport(btn.dataset.download!));
+        tbody.querySelectorAll<HTMLButtonElement>('[data-preview]').forEach((btn) => {
+          btn.addEventListener('click', () => openPreview(btn.dataset.preview!));
         });
       }
 
@@ -438,7 +421,11 @@ import "../styles/global.css";
         (document.getElementById('rt-rows') as HTMLElement).innerHTML = rowsHtml;
       }
 
-      async function downloadReport(studentName: string) {
+      // ── 미리보기 모달 ──────────────────────────────
+      const previewModal = document.getElementById('preview-modal') as HTMLElement;
+      let currentPreview: { studentName: string; examName: string } | null = null;
+
+      async function openPreview(studentName: string) {
         const examId = (document.getElementById('exam-select') as HTMLSelectElement).value;
         const { data: rows, error } = await supabase
           .from('rc_scores')
@@ -458,18 +445,27 @@ import "../styles/global.css";
         }
 
         renderReportTemplate(studentName, examRow, rows);
+        currentPreview = { studentName, examName: examRow.name };
+        previewModal.hidden = false;
+      }
 
+      document.getElementById('preview-close-btn')?.addEventListener('click', () => {
+        previewModal.hidden = true;
+        currentPreview = null;
+      });
+
+      document.getElementById('preview-download-btn')?.addEventListener('click', async () => {
+        if (!currentPreview) return;
         const node = document.getElementById('report-template')!;
         const dataUrl = await toJpeg(node, { quality: 0.95, pixelRatio: 2, backgroundColor: '#ffffff' });
         const a = document.createElement('a');
         a.href = dataUrl;
-        a.download = `${studentName}_${examRow.name}_성적표.jpg`;
+        a.download = `${currentPreview.studentName}_${currentPreview.examName}_성적표.jpg`;
         a.click();
-      }
+      });
 
       // ── 초기화 ──────────────────────────────
       async function init() {
-        await loadSheetId();
         await loadExams();
         await loadExamOptions();
       }

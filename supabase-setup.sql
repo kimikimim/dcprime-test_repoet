@@ -7,35 +7,16 @@
 -- ============================================================
 
 -- ────────────────────────────────────────────
--- 0. 예전 버전(로그인 게이트 있던 버전)의 RPC 함수 정리
+-- 0. 예전 버전(로그인 게이트 + 구글시트 연동 버전)의 잔재 정리
 --    처음 실행하는 경우엔 그냥 아무 일도 하지 않음
 -- ────────────────────────────────────────────
 DROP FUNCTION IF EXISTS verify_rc_admin_password(text);
 DROP FUNCTION IF EXISTS get_rc_sheet_id();
 DROP FUNCTION IF EXISTS set_rc_sheet_id(text);
+DROP TABLE IF EXISTS rc_config;
 
 -- ────────────────────────────────────────────
--- 1. 설정 (구글시트 ID) — 로그인 게이트 없이 anon이 바로 읽고 씀
--- ────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS rc_config (
-  key   text PRIMARY KEY,
-  value text NOT NULL
-);
-ALTER TABLE rc_config ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "anon all rc_config" ON rc_config;
-CREATE POLICY "anon all rc_config" ON rc_config
-  FOR ALL TO anon USING (true) WITH CHECK (true);
-
--- 예전 버전에서 만들어졌을 수 있는 admin_password 행 정리
-DELETE FROM rc_config WHERE key = 'admin_password';
-
--- sheet_id: 구글 스프레드시트 ID (관리자 화면 "구글 시트 설정"에서 입력/수정)
-INSERT INTO rc_config (key, value) VALUES ('sheet_id', '')
-  ON CONFLICT (key) DO NOTHING;
-
--- ────────────────────────────────────────────
--- 2. 시험 (시험 회차 단위 — 과목은 rc_scores에서 구분)
+-- 1. 시험 (시험 회차 단위 — 과목은 rc_scores에서 구분)
 --    학년 + 시험명 + 시험일자로 고유
 -- ────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS rc_exams (
@@ -54,8 +35,8 @@ CREATE POLICY "anon all rc_exams" ON rc_exams
   FOR ALL TO anon USING (true) WITH CHECK (true);
 
 -- ────────────────────────────────────────────
--- 3. 과목별 성적 (한 시험 안에 과목별로 여러 행)
---    통계값(반평균/표준편차/석차/응시인원)은 구글시트 동기화 시점에 계산해서 저장
+-- 2. 과목별 성적 (한 시험 안에 과목별로 여러 행)
+--    통계값(반평균/표준편차/석차/응시인원)은 엑셀 업로드 시점에 계산해서 저장
 -- ────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS rc_scores (
   id            uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
