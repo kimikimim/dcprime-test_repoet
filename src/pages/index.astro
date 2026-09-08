@@ -771,9 +771,15 @@ import "../styles/global.css";
       document.getElementById('report-grade-select')?.addEventListener('change', loadStudents);
       document.getElementById('student-search')?.addEventListener('input', applyStudentFilter);
 
-      // 5등급제(2028 수능 개편) 누적 비율 기준으로 석차/응시인원에서 예상등급 추정
-      // 1등급 누적 상위 10% · 2등급 34% · 3등급 66% · 4등급 90% · 5등급 100%
-      function estimateGrade(rank: number, size: number): number {
+      // 수학은 절대 점수 등급컷: 1등급 70점~ · 2등급 60점대 · 3등급 40~50점대 · 4등급 40점 미만
+      // 나머지 과목은 5등급제(2028 수능 개편) 누적 비율: 1등급 상위 10% · 2등급 34% · 3등급 66% · 4등급 90% · 5등급 100%
+      function estimateGrade(rank: number, size: number, subject: string, score: number): number {
+        if (subject === '수학') {
+          if (score >= 70) return 1;
+          if (score >= 60) return 2;
+          if (score >= 40) return 3;
+          return 4;
+        }
         if (size <= 0) return 5;
         const percentile = rank / size;
         const bands = [0.1, 0.34, 0.66, 0.9];
@@ -796,7 +802,7 @@ import "../styles/global.css";
               <td style="padding:12px 6px; text-align:right; font-weight:800; font-size:17px; color:#565d82;">${r.score}점</td>
               <td style="padding:12px 6px; text-align:right; color:#8a8fad;">${r.class_avg}점</td>
               <td style="padding:12px 6px; text-align:right; color:#8a8fad;">${r.class_stddev}</td>
-              <td style="padding:12px 6px; text-align:right; font-weight:700; color:#565d82;">${estimateGrade(r.class_rank, r.class_size)}등급</td>
+              <td style="padding:12px 6px; text-align:right; font-weight:700; color:#565d82;">${estimateGrade(r.class_rank, r.class_size, r.subject, r.score)}등급</td>
             </tr>`
           )
           .join('');
