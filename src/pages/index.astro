@@ -627,6 +627,15 @@ import "../styles/global.css";
         await loadReportExamOptions();
       });
 
+      // 엑셀의 학년 표기("6학년", "중1" 등)가 시험의 대상학년("초6", "중1" 등)과 같은 학년인지
+      // "6학년"은 대상학년이 초6이면 같은 학년으로 봄. 숫자만 같고 학교급이 다른 건 대상학년에 있는 것만 인정.
+      function gradeMatchesExam(excelGrade: string, targets: string[]): boolean {
+        return targets.some((t) => {
+          const num = t.replace(/^[초중고]/, '');
+          return excelGrade === t || excelGrade === `${t}학년` || excelGrade === `${num}학년`;
+        });
+      }
+
       // ── 엑셀 업로드 처리 (시험 상세 안에서, 헤더: 학년 | 이름 | 국어 | 영어 | 수학 | 과학) ──────────────────────────────
       // 과목 컬럼은 필요한 것만 있어도 되고 순서도 상관없음. 빈 칸은 명단에서 제외, -1(또는 null/미응시/결시)은 미응시로 저장.
       async function processExcelFile(file: File) {
@@ -673,6 +682,35 @@ import "../styles/global.css";
             return;
           }
 
+          // 대상학년과 다른 학년 행이 섞여 있으면 경고 (다른 학년 파일에서 복사해 온 행이 남아있는 경우 등)
+          const targets = currentExam.grades ?? [];
+          const otherGrades = new Map<string, Set<string>>();
+          for (const [key, studentMap] of byGroup) {
+            const g = key.split('||')[0];
+            if (gradeMatchesExam(g, targets)) continue;
+            if (!otherGrades.has(g)) otherGrades.set(g, new Set());
+            studentMap.forEach((_, name) => otherGrades.get(g)!.add(name));
+          }
+          let excludedStudents = 0;
+          if (otherGrades.size > 0) {
+            const lines = [...otherGrades].map(([g, names]) => `· ${g} ${names.size}명`).join('\n');
+            const proceed = confirm(
+              `이 시험의 대상학년(${targets.join(', ')})과 다른 학년의 데이터가 있습니다.\n\n${lines}\n\n[확인] 이 데이터는 빼고 나머지만 업로드\n[취소] 업로드 전체 취소`
+            );
+            if (!proceed) {
+              resultEl.textContent = '업로드를 취소했습니다.';
+              return;
+            }
+            excludedStudents = [...otherGrades.values()].reduce((a, names) => a + names.size, 0);
+            for (const key of [...byGroup.keys()]) {
+              if (!gradeMatchesExam(key.split('||')[0], targets)) byGroup.delete(key);
+            }
+            if (byGroup.size === 0) {
+              resultEl.textContent = '대상학년에 맞는 데이터가 없어서 업로드하지 않았습니다.';
+              return;
+            }
+          }
+
           let scoreCount = 0;
           for (const [key, studentMap] of byGroup) {
             const [grade, subject] = key.split('||');
@@ -693,7 +731,7 @@ import "../styles/global.css";
             await recomputeGroup(currentExam!.id, grade, subject);
           }
 
-          resultEl.textContent = `업로드 완료: ${scoreCount}명 처리됨`;
+          resultEl.textContent = `업로드 완료: ${scoreCount}명 처리됨${excludedStudents ? ` (다른 학년 ${excludedStudents}명 제외)` : ''}`;
           await loadRoster();
           await loadExams();
           await loadReportExamOptions();
