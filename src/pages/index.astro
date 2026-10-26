@@ -134,7 +134,7 @@ import "../styles/global.css";
           <h4 class="text-sm font-bold text-gray-900 mb-2">엑셀로 명단 업로드</h4>
           <p class="text-xs text-gray-500 mb-3 leading-relaxed">
             첫 행은 헤더: <b>학년 | 이름 | 국어 | 영어 | 수학 | 과학</b><br />
-            과목 컬럼은 필요한 것만 있어도 되고 순서도 상관없습니다. 빈 칸은 그 과목 미응시로 처리됩니다.
+            과목 컬럼은 필요한 것만 있어도 되고 순서도 상관없습니다. 빈 칸은 그 과목을 안 보는 학생(명단에 없음), <b>null</b>이라고 쓰면 미응시(전체 인원에는 포함, 석차·평균에서는 제외)입니다.
           </p>
           <input
             id="ed-excel-input"
@@ -151,7 +151,7 @@ import "../styles/global.css";
             <select id="ed-add-grade" class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm"></select>
             <select id="ed-add-subject" class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm"></select>
             <input id="ed-add-name" placeholder="이름" class="flex-1 min-w-[100px] border border-gray-200 rounded-lg px-2 py-1.5 text-sm" />
-            <input id="ed-add-score" type="number" placeholder="점수" class="w-24 border border-gray-200 rounded-lg px-2 py-1.5 text-sm" />
+            <input id="ed-add-score" type="text" inputmode="decimal" placeholder="점수 / null" class="w-24 border border-gray-200 rounded-lg px-2 py-1.5 text-sm" />
             <button id="ed-add-btn" class="px-3 py-1.5 rounded-lg bg-brand text-white text-sm font-bold hover:bg-brand-dark">추가</button>
           </div>
         </div>
@@ -283,6 +283,22 @@ import "../styles/global.css";
         });
       }
 
+      // ── 미응시 ──────────────────────────────
+      // score 컬럼이 NOT NULL이라 점수 -1을 미응시 표시값으로 씀. 평균·표준편차·석차 계산에서는 빠지고,
+      // class_size(전체 인원)에는 포함됨. 입력할 때는 null / 미응시 / 결시 라고 쓰면 됨.
+      const ABSENT = -1;
+      const ABSENT_TOKENS = ['null', '미응시', '결시'];
+
+      // 점수 입력 문자열 → 숫자(미응시는 -1), 비었거나 잘못된 값이면 undefined
+      function parseScoreInput(raw: unknown): number | undefined {
+        if (raw === undefined || raw === null) return undefined;
+        const text = String(raw).trim();
+        if (text === '') return undefined;
+        if (ABSENT_TOKENS.includes(text.toLowerCase())) return ABSENT;
+        const n = Number(text);
+        return Number.isFinite(n) && n >= 0 ? n : undefined;
+      }
+
       // ── 통계 재계산 (같은 exam_id + grade + subject 그룹) ──────────────────────────────
       async function recomputeGroup(examId: string, grade: string, subject: string) {
         const { data: rows, error } = await supabase
@@ -293,30 +309,26 @@ import "../styles/global.css";
           .eq('subject', subject);
         if (error || !rows || rows.length === 0) return;
 
-        const sorted = [...rows].sort((a, b) => b.score - a.score);
+        const size = rows.length;
+        const present = rows.filter((r) => r.score !== ABSENT).sort((a, b) => b.score - a.score);
+        const avg = present.length ? present.reduce((a, b) => a + b.score, 0) / present.length : 0;
+        const variance = present.length ? present.reduce((a, b) => a + (b.score - avg) ** 2, 0) / present.length : 0;
+        const stddev = Math.sqrt(variance);
+        const stats = { class_avg: Math.round(avg * 10) / 10, class_stddev: Math.round(stddev * 10) / 10, class_size: size };
+
         let rank = 0;
         let prevScore: number | null = null;
         let seen = 0;
-        const size = sorted.length;
-        const avg = sorted.reduce((a, b) => a + b.score, 0) / size;
-        const variance = sorted.reduce((a, b) => a + (b.score - avg) ** 2, 0) / size;
-        const stddev = Math.sqrt(variance);
-
-        for (const row of sorted) {
+        for (const row of present) {
           seen++;
           if (row.score !== prevScore) {
             rank = seen;
             prevScore = row.score;
           }
-          await supabase
-            .from('rc_scores')
-            .update({
-              class_avg: Math.round(avg * 10) / 10,
-              class_stddev: Math.round(stddev * 10) / 10,
-              class_rank: rank,
-              class_size: size,
-            })
-            .eq('id', row.id);
+          await supabase.from('rc_scores').update({ ...stats, class_rank: rank }).eq('id', row.id);
+        }
+        for (const row of rows.filter((r) => r.score === ABSENT)) {
+          await supabase.from('rc_scores').update({ ...stats, class_rank: 0 }).eq('id', row.id);
         }
       }
 
@@ -493,10 +505,10 @@ import "../styles/global.css";
                 <td class="py-2 pr-3">${escHtml(r.grade)}</td>
                 <td class="py-2 pr-3">${escHtml(r.subject)}</td>
                 <td class="py-2 pr-3 font-medium">${escHtml(r.student_name)}</td>
-                <td class="py-2 pr-3" data-cell="score">${r.score}</td>
+                <td class="py-2 pr-3" data-cell="score" data-score="${r.score}">${r.score === ABSENT ? '<span class="text-gray-400">미응시</span>' : r.score}</td>
                 <td class="py-2 pr-3 text-gray-500">${r.class_avg}</td>
                 <td class="py-2 pr-3 text-gray-500">${r.class_stddev}</td>
-                <td class="py-2 pr-3">${r.class_size}명 중 ${r.class_rank}등</td>
+                <td class="py-2 pr-3">${r.score === ABSENT ? '-' : `${r.class_size}명 중 ${r.class_rank}등`}</td>
                 <td class="py-2 whitespace-nowrap">
                   <button data-edit-row="${r.id}" class="text-brand text-xs hover:underline mr-2">수정</button>
                   <button data-delete-row="${r.id}" class="text-red-600 text-xs hover:underline">삭제</button>
@@ -517,8 +529,8 @@ import "../styles/global.css";
         const tr = document.querySelector<HTMLElement>(`tr[data-row-id="${rowId}"]`);
         if (!tr) return;
         const cell = tr.querySelector<HTMLElement>('[data-cell="score"]')!;
-        const currentScore = cell.textContent;
-        cell.innerHTML = `<input type="number" value="${currentScore}" class="w-20 border border-gray-200 rounded px-1.5 py-1 text-sm" />`;
+        const currentScore = Number(cell.dataset.score) === ABSENT ? '미응시' : cell.dataset.score;
+        cell.innerHTML = `<input type="text" value="${currentScore}" placeholder="점수 / null" class="w-20 border border-gray-200 rounded px-1.5 py-1 text-sm" />`;
         const actionsCell = tr.lastElementChild as HTMLElement;
         actionsCell.innerHTML = `
           <button data-save-row="${rowId}" class="text-brand text-xs hover:underline mr-2">저장</button>
@@ -531,9 +543,9 @@ import "../styles/global.css";
         const tr = document.querySelector<HTMLElement>(`tr[data-row-id="${rowId}"]`);
         if (!tr || !currentExam) return;
         const input = tr.querySelector<HTMLInputElement>('[data-cell="score"] input')!;
-        const score = Number(input.value);
-        if (Number.isNaN(score)) {
-          alert('점수를 올바르게 입력해주세요.');
+        const score = parseScoreInput(input.value);
+        if (score === undefined) {
+          alert('점수를 올바르게 입력해주세요. (미응시는 null)');
           return;
         }
         const { data: row } = await supabase.from('rc_scores').select('grade, subject').eq('id', rowId).single();
@@ -562,9 +574,9 @@ import "../styles/global.css";
         const nameInput = document.getElementById('ed-add-name') as HTMLInputElement;
         const scoreInput = document.getElementById('ed-add-score') as HTMLInputElement;
         const name = nameInput.value.trim();
-        const score = Number(scoreInput.value);
-        if (!name || Number.isNaN(score)) {
-          alert('이름과 점수를 입력해주세요.');
+        const score = parseScoreInput(scoreInput.value);
+        if (!name || score === undefined) {
+          alert('이름과 점수를 입력해주세요. (미응시는 null)');
           return;
         }
         const { error } = await supabase
@@ -596,7 +608,7 @@ import "../styles/global.css";
       });
 
       // ── 엑셀 업로드 처리 (시험 상세 안에서, 헤더: 학년 | 이름 | 국어 | 영어 | 수학 | 과학) ──────────────────────────────
-      // 과목 컬럼은 필요한 것만 있어도 되고 순서도 상관없음. 빈 칸은 그 과목 미응시로 처리.
+      // 과목 컬럼은 필요한 것만 있어도 되고 순서도 상관없음. 빈 칸은 명단에서 제외, null/미응시/결시는 미응시(-1)로 저장.
       async function processExcelFile(file: File) {
         if (!currentExam) return;
         const resultEl = document.getElementById('ed-upload-result') as HTMLElement;
@@ -628,9 +640,8 @@ import "../styles/global.css";
             if (!grade || !studentName) continue;
             for (const { subject, idx } of subjectCols) {
               const cell = r[idx];
-              if (cell === undefined || cell === '') continue;
-              const score = Number(cell);
-              if (Number.isNaN(score)) continue;
+              const score = parseScoreInput(cell);
+              if (score === undefined) continue;
               const key = `${grade}||${subject}`;
               if (!byGroup.has(key)) byGroup.set(key, new Map());
               byGroup.get(key)!.set(studentName, score);
@@ -726,7 +737,7 @@ import "../styles/global.css";
           applyStudentFilter();
           return;
         }
-        const { data, error } = await supabase.from('rc_scores').select('student_name, subject').eq('exam_id', examId).eq('grade', grade);
+        const { data, error } = await supabase.from('rc_scores').select('student_name, subject, score').eq('exam_id', examId).eq('grade', grade);
         if (error) {
           console.error(error);
           return;
@@ -734,7 +745,7 @@ import "../styles/global.css";
         const byStudent = new Map<string, string[]>();
         (data ?? []).forEach((row: any) => {
           if (!byStudent.has(row.student_name)) byStudent.set(row.student_name, []);
-          byStudent.get(row.student_name)!.push(row.subject);
+          if (row.score !== ABSENT) byStudent.get(row.student_name)!.push(row.subject);
         });
         allStudents = [...byStudent.entries()]
           .map(([name, subjects]) => ({ name, subjects }))
@@ -781,10 +792,10 @@ import "../styles/global.css";
             (r) => `
             <tr style="border-bottom:1px solid #f0f1f4;">
               <td style="padding:12px 6px; font-weight:700; color:#2e3250;">${escHtml(r.subject)}</td>
-              <td style="padding:12px 6px; text-align:right; font-weight:800; font-size:17px; color:#565d82;">${r.score}점</td>
+              <td style="padding:12px 6px; text-align:right; font-weight:800; font-size:17px; color:#565d82;">${r.score === ABSENT ? '<span style="font-weight:700; font-size:14px; color:#8a8fad;">미응시</span>' : `${r.score}점`}</td>
               <td style="padding:12px 6px; text-align:right; color:#8a8fad;">${r.class_avg}점</td>
               <td style="padding:12px 6px; text-align:right; color:#8a8fad;">${r.class_stddev}</td>
-              <td style="padding:12px 6px; text-align:right; font-weight:700; color:#2e3250;">${r.class_size}명 중 ${r.class_rank}등</td>
+              <td style="padding:12px 6px; text-align:right; font-weight:700; color:#2e3250;">${r.score === ABSENT ? '-' : `${r.class_size}명 중 ${r.class_rank}등`}</td>
             </tr>`
           )
           .join('');
