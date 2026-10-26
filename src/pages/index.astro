@@ -528,7 +528,7 @@ import "../styles/global.css";
                 <td class="py-2 pr-3" data-cell="score" data-score="${r.score}">${r.score === ABSENT ? '<span class="text-gray-400">미응시</span>' : r.score}</td>
                 <td class="py-2 pr-3 text-gray-500">${r.class_avg}</td>
                 <td class="py-2 pr-3 text-gray-500">${r.class_stddev}</td>
-                <td class="py-2 pr-3">${r.score === ABSENT ? '-' : `${r.class_size}명 중 ${r.class_rank}등`}</td>
+                <td class="py-2 pr-3">${r.score === ABSENT ? '-' : `${r.class_rank}/${r.class_size}`}</td>
                 <td class="py-2 whitespace-nowrap">
                   <button data-edit-row="${r.id}" class="text-brand text-xs hover:underline mr-2">수정</button>
                   <button data-delete-row="${r.id}" class="text-red-600 text-xs hover:underline">삭제</button>
@@ -817,7 +817,7 @@ import "../styles/global.css";
               <td style="padding:12px 6px; text-align:right; font-weight:800; font-size:17px; color:#565d82;">${r.score}점</td>
               <td style="padding:12px 6px; text-align:right; color:#8a8fad;">${r.class_avg}점</td>
               <td style="padding:12px 6px; text-align:right; color:#8a8fad;">${r.class_stddev}</td>
-              <td style="padding:12px 6px; text-align:right; font-weight:700; color:#2e3250;">${r.class_rank}등/${r.class_size}명</td>
+              <td style="padding:12px 6px; text-align:right; font-weight:700; color:#2e3250;">${r.class_rank}/${r.class_size}</td>
             </tr>`
           )
           .join('');
